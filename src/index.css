@@ -22,8 +22,8 @@
   --shadow-card: rgba(0, 0, 0, 0.5);
   --shadow-card-border: rgba(255, 255, 255, 0.03);
 
-  --font-display: "Syne", sans-serif;
-  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 
