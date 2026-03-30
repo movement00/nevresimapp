@@ -1,4 +1,5 @@
-import { generateImageRaw } from "./geminiService";
+import { GoogleGenAI } from "@google/genai";
+import { getApiKey } from "./geminiService";
 
 export interface SocialMediaShot {
   id: string;
@@ -36,61 +37,155 @@ export interface SocialMediaProgress {
 
 export type SocialMediaCallback = (progress: SocialMediaProgress) => void;
 
-const BANNER_BASE = (
+// SM pipeline uses the PRO model for higher quality (same as BannerGenius)
+const SM_IMAGE_MODEL = "gemini-3-pro-image-preview";
+
+const getApiAspectRatio = (ratio: string): string => {
+  if (ratio === "2:3" || ratio === "4:5") return "3:4";
+  return ratio;
+};
+
+// Direct image generation using the PRO model
+async function generateSmImage(
+  prompt: string,
+  referenceImages: string[],
+  aspectRatio: string,
+  textFirst: boolean
+): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
+  const parts: any[] = [];
+
+  if (textFirst) {
+    parts.push({ text: prompt });
+    for (const img of referenceImages.slice(0, 4)) {
+      const matches = img.match(/^data:([^;]*);base64,(.+)$/);
+      if (matches) {
+        parts.push({ inlineData: { mimeType: matches[1] || "image/jpeg", data: matches[2] } });
+      } else {
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: img } });
+      }
+    }
+  } else {
+    for (const img of referenceImages.slice(0, 4)) {
+      const matches = img.match(/^data:([^;]*);base64,(.+)$/);
+      if (matches) {
+        parts.push({ inlineData: { mimeType: matches[1] || "image/jpeg", data: matches[2] } });
+      } else {
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: img } });
+      }
+    }
+    parts.push({ text: prompt });
+  }
+
+  const response = await ai.models.generateContent({
+    model: SM_IMAGE_MODEL,
+    contents: { parts },
+    config: {
+      responseModalities: ["IMAGE", "TEXT"],
+      imageConfig: {
+        aspectRatio: getApiAspectRatio(aspectRatio),
+        imageSize: "1K",
+      },
+    },
+  });
+
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+  throw new Error("Görsel oluşturulamadı.");
+}
+
+// ===== BANNER PROMPT — BannerGenius style with gradient rules =====
+const BANNER_PROMPT = (
   generationPrompt: string,
   signatureDetails: string,
   _productName: string,
   brandName: string,
   textInstructions: string,
   aspectRatio: string,
-  logoBase64?: string
-) => `Generate a professional social media marketing banner image.
+) => `You are a World-Class Art Director & Social Media Designer creating a premium marketing banner.
 
 PRODUCT CONTEXT:
 ${generationPrompt}
 
 PRODUCT DETAILS: ${signatureDetails}
 
-BANNER DESIGN INSTRUCTIONS:
-- Create a sleek, modern marketing banner optimized for ${aspectRatio} aspect ratio.
-- The product (bedding set) must be the hero element — clearly visible, beautifully styled.
-- Professional studio or lifestyle setting with warm, inviting lighting.
-- Premium, magazine-quality aesthetic.
+═══ DESIGN SYSTEM (MANDATORY) ═══
 
-TEXT ON IMAGE (MUST BE IN TURKISH):
+LAYOUT RULES:
+- The product (bedding set) is the HERO element — occupying 60-70% of the frame.
+- Product must be beautifully styled on a bed in a premium bedroom setting.
+- Warm, cinematic lighting with soft shadows.
+- Composition optimized for ${aspectRatio} aspect ratio.
+
+GRADIENT OVERLAY (MANDATORY):
+- Apply a smooth gradient overlay on the image to create a text-safe zone.
+- The gradient should flow from transparent (where the product is) to a rich, dark color (where the text is).
+- Use warm tones: deep charcoal (#1a1a2e), warm black (#0d0d0d), or dark navy (#0a1628).
+- The gradient must be SMOOTH, CINEMATIC, and PROFESSIONAL — not harsh or flat.
+- Gradient opacity: 40-70% in the text zone, 0-10% on the product zone.
+
+TYPOGRAPHY RULES (CRITICAL):
+- ALL text MUST be in TURKISH.
+- Use CLEAN, MODERN, PREMIUM typography — think luxury brand advertising.
+- Headline: Large, bold, sans-serif or elegant serif font. WHITE or CREAM color.
+- Subtext/slogan: Lighter weight, smaller size. Warm white or gold (#d4a574) color.
+- Text must have HIGH CONTRAST against the gradient background — fully readable.
+- Letter spacing: slightly expanded for elegance.
+- DO NOT use cheap, tacky, or amateur-looking fonts.
+- Text placement must be in the gradient zone, NOT overlapping the product.
+
+${brandName ? `BRAND: Display "${brandName}" in small, elegant text — corner or bottom.` : ""}
+
+TEXT CONTENT (IN TURKISH):
 ${textInstructions}
 
-${brandName ? `BRAND NAME: "${brandName}" — display it elegantly on the image.` : ""}
-${logoBase64 ? "A logo image is provided as a reference — place it subtly in a corner of the banner." : ""}
+═══ CRITICAL RULES ═══
+- Product colors, embroidery, and textile details MUST match reference images EXACTLY.
+- NO people in the image.
+- The final result must look like a high-budget social media advertisement — NOT a cheap template.
+- Think: luxury bedding brand Instagram page, Restoration Hardware, Zara Home level quality.`;
 
-CRITICAL:
-- ALL text on the image MUST be in TURKISH.
-- Typography must be clean, modern, and premium-looking.
-- Product colors, embroidery, and details must match reference images exactly.
-- NO people in the image.`;
-
-const LIFESTYLE_BASE = (
+// ===== LIFESTYLE PROMPT — cinematic quality =====
+const LIFESTYLE_PROMPT = (
   generationPrompt: string,
   signatureDetails: string,
   sceneInstructions: string,
   aspectRatio: string
-) => `Generate a professional lifestyle product photograph.
+) => `You are a World-Class Product Photographer creating an editorial lifestyle photograph.
 
 PRODUCT CONTEXT:
 ${generationPrompt}
 
 PRODUCT DETAILS: ${signatureDetails}
 
+═══ PHOTOGRAPHY BRIEF ═══
+
 SCENE: ${sceneInstructions}
 
-CRITICAL:
-- This is a pure lifestyle/aesthetic shot — NO text, NO labels, NO watermarks on the image.
-- Must look like a genuine DSLR photograph, not CGI.
-- Product colors, embroidery, and textile details must match reference images exactly.
+CAMERA & LIGHTING:
+- Shot with a high-end DSLR (Canon 5D Mark IV or Sony A7R V).
+- Natural window light, warm color temperature (~4200K).
+- Shallow to medium depth of field for cinematic bokeh.
+- Professional color grading: warm, inviting, slightly desaturated for editorial feel.
+
+COMPOSITION:
+- Optimized for ${aspectRatio} aspect ratio.
+- Rule of thirds, leading lines, visual flow.
+- Magazine/catalog quality — Restoration Hardware or Zara Home level.
+
+═══ CRITICAL RULES ═══
+- NO text, NO labels, NO watermarks on the image.
+- Must look like a GENUINE DSLR photograph — NOT CGI or AI-generated looking.
+- Product colors, embroidery, and textile details MUST match reference images EXACTLY.
 - NO people in the image.
-- Optimize composition for ${aspectRatio} aspect ratio.`;
+- NO extra textile products not shown in references.`;
 
 export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
+  // ═══ GROUP A: Text Banner Visuals ═══
   {
     id: "sm_feed_banner",
     label: "Instagram Feed Banner",
@@ -99,12 +194,12 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     aspectRatio: "3:4",
     hasText: true,
     description: "Ürün ismi + slogan + logo ile feed görseli",
-    promptBuilder: (gp, sig, productName, brandName, logoBase64) =>
-      BANNER_BASE(gp, sig, productName, brandName,
-        `- Product name: "${productName}" as the main headline in large, elegant serif typography.
-- A short, aspirational Turkish marketing slogan below (e.g., "Hayalinizdeki Konfor", "Lüks Dokunuş, Her Gece").
-- The slogan should feel premium and be related to comfort/luxury/quality.`,
-        "4:5", logoBase64),
+    promptBuilder: (gp, sig, productName, brandName) =>
+      BANNER_PROMPT(gp, sig, productName, brandName,
+        `HEADLINE: "${productName}" — large, bold, premium serif or sans-serif typography.
+SLOGAN: Generate a short, aspirational Turkish marketing slogan (e.g., "Hayalinizdeki Konfor", "Lüks Dokunuş, Her Gece", "Evinize Premium Dokunuş").
+PLACEMENT: Headline at top or bottom third of image. Slogan just below headline.`,
+        "4:5"),
   },
   {
     id: "sm_story_banner",
@@ -114,13 +209,14 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     aspectRatio: "9:16",
     hasText: true,
     description: "Tam ekran story formatında tanıtım",
-    promptBuilder: (gp, sig, productName, brandName, logoBase64) =>
-      BANNER_BASE(gp, sig, productName, brandName,
-        `- Full-screen vertical (9:16) story format.
-- Product name "${productName}" prominently displayed.
-- A bold, attention-grabbing Turkish headline (e.g., "YENİ KOLEKSİYON", "SINIRLI STOK").
-- A swipe-up style call-to-action at the bottom (e.g., "Keşfet →", "İncele →").`,
-        "9:16", logoBase64),
+    promptBuilder: (gp, sig, productName, brandName) =>
+      BANNER_PROMPT(gp, sig, productName, brandName,
+        `Full-screen vertical story format (9:16).
+HEADLINE: "${productName}" — bold, centered, large typography at top third.
+SUBTEXT: A bold Turkish attention line like "YENİ KOLEKSİYON" or "PREMIUM KALİTE".
+CTA: At the very bottom, a swipe-up style call-to-action: "Keşfet →" or "İncele →" in smaller text.
+GRADIENT: Bottom-to-top gradient — darker at bottom for CTA readability, transparent at center for product visibility.`,
+        "9:16"),
   },
   {
     id: "sm_carousel_intro",
@@ -130,14 +226,20 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     aspectRatio: "3:4",
     hasText: true,
     description: "Carousel açılış kartı, ürün tanıtımı",
-    promptBuilder: (gp, sig, productName, brandName, logoBase64) =>
-      BANNER_BASE(gp, sig, productName, brandName,
-        `- Opening card of a carousel series.
-- Product name "${productName}" as the hero headline.
-- 2-3 key product features listed elegantly in Turkish (e.g., "✓ %100 Pamuk Saten", "✓ Nakışlı Tasarım", "✓ 7 Parça Set").
-- Clean, modern layout that makes the viewer want to swipe for more.`,
-        "4:5", logoBase64),
+    promptBuilder: (gp, sig, productName, brandName) =>
+      BANNER_PROMPT(gp, sig, productName, brandName,
+        `Opening card of a carousel series.
+HEADLINE: "${productName}" — hero headline, large and bold.
+FEATURES: 2-3 key product features in Turkish, displayed as a clean list:
+  "✓ %100 Pamuk Saten"
+  "✓ Nakışlı Tasarım"
+  "✓ Premium Kalite"
+PLACEMENT: Text block at bottom third with gradient overlay. Product dominant in upper 2/3.
+STYLE: Clean, modern, makes the viewer want to SWIPE for more.`,
+        "4:5"),
   },
+
+  // ═══ GROUP B: Aesthetic/Lifestyle (No Text) ═══
   {
     id: "sm_lifestyle",
     label: "Lifestyle Shot",
@@ -147,8 +249,8 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     hasText: false,
     description: "Yaşam alanında ürün, yazısız",
     promptBuilder: (gp, sig) =>
-      LIFESTYLE_BASE(gp, sig,
-        `Warm, sunlit bedroom scene. Product beautifully styled on the bed with duvet artfully turned back. Scandinavian-contemporary bedroom with soft morning light through sheer curtains. A coffee cup on the nightstand, a knit throw on a nearby chair. Inviting, aspirational mood — "I want this bedroom" feeling. Shot at f/4 with 50mm lens.`,
+      LIFESTYLE_PROMPT(gp, sig,
+        `Warm, sun-filled Scandinavian-contemporary bedroom. The bed is the centerpiece with the product beautifully styled — duvet artfully turned back showing layers. Soft morning light through sheer curtains creating long, warm shadows. A coffee cup on the nightstand, a knit throw casually draped on a nearby chair. Light oak flooring, warm plaster walls. Inviting, aspirational "I want this bedroom" mood. Shot at f/4 with 50mm lens at a slight 3/4 angle from the foot of the bed.`,
         "4:5"),
   },
   {
@@ -160,10 +262,12 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     hasText: false,
     description: "Doku ve kalite detay çekimi, yazısız",
     promptBuilder: (gp, sig) =>
-      LIFESTYLE_BASE(gp, sig,
-        `Extreme close-up of the fabric texture and embroidery detail. Fill the frame with the textile surface — show thread structure, weave pattern, and embroidery stitching in beautiful detail. Shallow depth of field with tack-sharp center fading to soft bokeh. Side lighting at 45 degrees raking across the surface to reveal texture dimensionality. No bed, no room — only the fabric surface.`,
+      LIFESTYLE_PROMPT(gp, sig,
+        `Extreme close-up macro photograph of the fabric texture and embroidery. Fill the ENTIRE frame with the textile surface — show individual thread structure, weave pattern, satin stitch sheen, and embroidery stitching in photorealistic detail. Shallow depth of field: tack-sharp center fading to creamy bokeh at edges. Side lighting at 30-45 degrees raking across the surface to reveal stitch depth and thread dimensionality. Background is out-of-focus bedding surface. Shot at f/4 with 100mm macro lens.`,
         "1:1"),
   },
+
+  // ═══ GROUP C: Carousel Continuation ═══
   {
     id: "sm_carousel_angle",
     label: "Carousel Kart 2 — Açı",
@@ -173,8 +277,8 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     hasText: false,
     description: "Farklı açıdan ürün, yazısız",
     promptBuilder: (gp, sig) =>
-      LIFESTYLE_BASE(gp, sig,
-        `Different angle product shot. Low angle from the foot of the bed looking toward the headboard. Dramatic yet warm natural lighting. The duvet edge cascading over the bed foot is the closest element. Shows the product from a fresh perspective. Clean, modern bedroom setting.`,
+      LIFESTYLE_PROMPT(gp, sig,
+        `Low angle shot from the foot of the bed, near mattress height, looking UP toward the headboard. The duvet edge cascading over the foot of the bed is the closest element — showing fabric drape and weight beautifully. Dramatic yet warm natural lighting from a side window. Curved upholstered headboard partially visible. One nightstand with minimal decor. Shot at f/4 with 35mm lens for slight wide-angle drama. Fresh, different perspective that adds visual variety to the carousel set.`,
         "4:5"),
   },
   {
@@ -185,14 +289,14 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     aspectRatio: "3:4",
     hasText: true,
     description: "Kapanış kartı, slogan + CTA",
-    promptBuilder: (gp, sig, productName, brandName, logoBase64) =>
-      BANNER_BASE(gp, sig, productName, brandName,
-        `- Final card of a carousel series — the closing/CTA card.
-- A compelling Turkish call-to-action as the main text (e.g., "Şimdi Keşfet", "Hemen İncele", "Sipariş Ver").
-- Product name "${productName}" displayed smaller below.
-- Clean, premium design that drives action.
-- The product should still be visible but the text/CTA is the focus.`,
-        "4:5", logoBase64),
+    promptBuilder: (gp, sig, productName, brandName) =>
+      BANNER_PROMPT(gp, sig, productName, brandName,
+        `Final closing card of the carousel series — CTA focused.
+HEADLINE: A compelling Turkish call-to-action: "Şimdi Keşfet" or "Hemen İncele" — LARGE, BOLD, centered.
+SUBTEXT: "${productName}" displayed smaller below the CTA.
+GRADIENT: Full gradient overlay — product visible but muted, text is the DOMINANT element.
+STYLE: Premium, luxurious, drives action. Think luxury brand final slide.`,
+        "4:5"),
   },
 ];
 
@@ -239,11 +343,12 @@ export async function runSocialMediaPipeline(
         logoBase64
       );
 
-      const imageUrl = await generateImageRaw(
+      // Use the SM-specific high-quality image generator
+      const imageUrl = await generateSmImage(
         prompt,
         referenceImages,
         shot.aspectRatio,
-        shot.hasText
+        shot.hasText // textFirst for banner shots
       );
 
       results[i].imageUrl = imageUrl;
