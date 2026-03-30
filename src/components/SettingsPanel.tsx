@@ -39,7 +39,7 @@ export function SettingsPanel({
               <button
                 key={preset.count}
                 onClick={() => onPieceCountChange(preset.count)}
-                className={`flex-1 py-2 rounded-lg text-xs font-semibold font-mono transition-all ${
+                className={`flex-1 py-2 min-h-[44px] md:min-h-0 rounded-lg text-xs font-semibold font-mono transition-all ${
                   pieceCount === preset.count
                     ? "bg-accent text-black"
                     : "bg-surface-2 text-muted hover:text-text border border-border"
@@ -65,7 +65,7 @@ export function SettingsPanel({
             <button
               key={r.value}
               onClick={() => onAspectRatioChange(r.value)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium font-mono transition-all ${
+              className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded-md text-xs font-medium font-mono transition-all ${
                 aspectRatio === r.value
                   ? "bg-accent text-black"
                   : "bg-surface-2 text-muted hover:text-text border border-border"
@@ -90,7 +90,7 @@ export function SettingsPanel({
               <button
                 key={angle.id}
                 onClick={() => onAngleChange(angle)}
-                className={`p-2.5 rounded-lg text-left text-xs font-medium transition-all border ${
+                className={`p-2.5 min-h-[44px] md:min-h-0 rounded-lg text-left text-xs font-medium transition-all border ${
                   selectedAngle.id === angle.id
                     ? "bg-accent/10 text-accent border-accent/30"
                     : "bg-surface-2 text-muted hover:text-text border-border"
@@ -123,7 +123,7 @@ export function SettingsPanel({
                     key={opt}
                     onClick={() => onBadgeToggle(opt)}
                     disabled={!selectedBadges.has(opt) && selectedBadges.size >= 4}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
+                    className={`px-2.5 py-1 min-h-[44px] md:min-h-0 rounded-md text-[11px] font-medium transition-all border ${
                       selectedBadges.has(opt)
                         ? "bg-accent text-black border-accent"
                         : "bg-surface-2 text-muted border-border hover:text-text disabled:opacity-30"

@@ -122,7 +122,7 @@ export function UploadZone({ files, onFilesChange, disabled }: UploadZoneProps) 
                   <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/30 transition-colors" />
                   <button
                     onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
-                    className="absolute top-1 right-1 w-5 h-5 bg-black/70 hover:bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all"
+                    className="absolute top-1 right-1 w-7 h-7 md:w-5 md:h-5 bg-black/70 hover:bg-error text-white rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover/thumb:opacity-100 transition-all"
                   >
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
