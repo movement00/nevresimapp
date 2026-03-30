@@ -17,6 +17,9 @@ import { ResultView } from "./components/ResultView";
 import { PipelineConfig } from "./components/PipelineConfig";
 import { PipelineProgressView } from "./components/PipelineProgress";
 import { PipelineResults } from "./components/PipelineResults";
+import { MobileWizard } from "./components/MobileWizard";
+import { ModeSelector } from "./components/ModeSelector";
+import type { WizardStep } from "./components/BottomNav";
 
 const MODE_COPY: Record<AppMode, { title: string; desc: string }> = {
   pipeline: {
@@ -71,6 +74,8 @@ function App() {
   const [pipelinePieceCount, setPipelinePieceCount] = useState(6);
   const [pipelineProgress, setPipelineProgress] = useState<PipelineProgress | null>(null);
   const [pipelineResults, setPipelineResults] = useState<PipelineResultType[]>([]);
+
+  const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
 
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
@@ -293,11 +298,157 @@ function App() {
     </div>
   );
 
+  // Mobile wizard content sections
+  const mobileUploadContent = (
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-display text-xl font-700 text-text mb-1">Fotoğraflarını Yükle</h2>
+        <p className="text-sm text-muted">Nevresim ürün fotoğraflarını ekle, AI profesyonel görsellere dönüştürsün.</p>
+      </div>
+      <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
+      {files.length > 0 && (
+        <button
+          onClick={() => setWizardStep("mode")}
+          className="w-full py-3.5 bg-accent text-black rounded-xl font-semibold text-sm hover:bg-accent-hover transition-colors active:scale-[0.99]"
+        >
+          Devam Et →
+        </button>
+      )}
+    </div>
+  );
+
+  const mobileModeContent = (
+    <div className="space-y-4">
+      <ModeSelector mode={mode} onModeChange={handleModeChange} />
+      <button
+        onClick={() => setWizardStep("settings")}
+        className="w-full py-3.5 bg-accent text-black rounded-xl font-semibold text-sm hover:bg-accent-hover transition-colors active:scale-[0.99]"
+      >
+        Devam Et →
+      </button>
+    </div>
+  );
+
+  const mobileSettingsContent = (
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-display text-xl font-700 text-text mb-1">Ayarları Düzenle</h2>
+        <p className="text-sm text-muted">Görsel boyutu ve detayları ayarla.</p>
+      </div>
+      {isPipeline ? (
+        <PipelineConfig
+          enabledShots={pipelineEnabledShots}
+          onEnabledShotsChange={setPipelineEnabledShots}
+          aspectRatio={aspectRatio}
+          onAspectRatioChange={setAspectRatio}
+          pieceCount={pipelinePieceCount}
+          onPieceCountChange={setPipelinePieceCount}
+          userNotes={pipelineUserNotes}
+          onUserNotesChange={setPipelineUserNotes}
+        />
+      ) : (
+        <SettingsPanel
+          mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
+          selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
+          selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
+          boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
+          pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
+          userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
+        />
+      )}
+      <button
+        onClick={() => setWizardStep("generate")}
+        className="w-full py-3.5 bg-accent text-black rounded-xl font-semibold text-sm hover:bg-accent-hover transition-colors active:scale-[0.99]"
+      >
+        Devam Et →
+      </button>
+    </div>
+  );
+
+  const mobileGenerateContent = (
+    <div className="space-y-4">
+      <AnimatePresence mode="wait">
+        {status === "idle" && !generatedImage && (
+          <motion.div key="start" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-accent-dim border border-accent/20 flex items-center justify-center">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </div>
+              <h2 className="font-display text-xl font-700 text-text mb-2">Her Şey Hazır!</h2>
+              <p className="text-sm text-muted mb-6">
+                {files.length} fotoğraf · {copy.title}
+              </p>
+              <button
+                onClick={isPipeline ? startPipeline : startAnalysis}
+                disabled={!canStart || (isPipeline && pipelineEnabledShots.size === 0)}
+                className="w-full py-3.5 bg-accent text-black rounded-xl font-display font-700 text-base hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.99] shadow-[0_4px_20px_rgba(232,160,32,0.25)]"
+              >
+                {isPipeline
+                  ? `Pipeline Başlat · ${pipelineEnabledShots.size} görsel`
+                  : "Analiz Et ve Üret"}
+              </button>
+            </div>
+          </motion.div>
+        )}
+        {(status === "analyzing" || status === "generating") && (
+          <div key="loading" className="bg-surface rounded-xl border border-border overflow-hidden">
+            <LoadingState stage={status === "analyzing" ? "analyzing" : "generating"} />
+          </div>
+        )}
+        {status === "pipeline-running" && pipelineProgress && (
+          <PipelineProgressView key="progress" progress={pipelineProgress} />
+        )}
+        {status === "pipeline-done" && pipelineResults.length > 0 && (
+          <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} />
+        )}
+        {status === "done" && generatedImage && (
+          <ResultView
+            key="result"
+            imageUrl={generatedImage}
+            onRegenerate={handleRegenerate}
+            onRevise={handleRevise}
+            onReset={reset}
+            onStartPipeline={mode === "photography" ? startPipelineFromHero : undefined}
+            isRegenerating={isProcessing}
+          />
+        )}
+        {status === "selection" && !generatedImage && (
+          <div key="selection" className="bg-surface rounded-xl border border-border p-8 text-center">
+            <h3 className="font-display text-sm font-700 text-text mb-1">
+              {mode === "infographic" ? "Etiketlerinizi Seçin" : "Açı Seçin"}
+            </h3>
+            <p className="text-xs text-subtle mb-4">Ayarlar sekmesinden seçimlerinizi yapın.</p>
+            <button
+              onClick={generateFromSelection}
+              className="px-6 py-2.5 bg-accent text-black rounded-lg font-semibold text-sm hover:bg-accent-hover transition-colors"
+            >
+              {mode === "infographic" ? `İnfografik Oluştur · ${selectedBadges.size} etiket` : "Seçilen Açıyla Üret"}
+            </button>
+          </div>
+        )}
+        {status === "error" && <ErrorState key="error" />}
+      </AnimatePresence>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-bg grain">
       <Header mode={mode} onModeChange={handleModeChange} />
 
-      <main className="max-w-7xl mx-auto px-5 py-7">
+      {/* Mobile Wizard — visible only on < md */}
+      <MobileWizard
+        currentStep={wizardStep}
+        onStepChange={setWizardStep}
+        uploadContent={mobileUploadContent}
+        modeContent={mobileModeContent}
+        settingsContent={mobileSettingsContent}
+        generateContent={mobileGenerateContent}
+      />
+
+      {/* Desktop Layout — visible only on >= md */}
+      <main className="hidden md:block max-w-7xl mx-auto px-5 py-7">
         {/* Hero */}
         {status === "idle" && !generatedImage && (
           <motion.div
@@ -314,12 +465,11 @@ function App() {
           </motion.div>
         )}
 
-        {/* ═══ PIPELINE ═══ */}
+        {/* PIPELINE */}
         {isPipeline && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <div className="lg:col-span-4 space-y-3">
+          <div className="grid grid-cols-12 gap-5">
+            <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
-
               {status === "idle" && (
                 <PipelineConfig
                   enabledShots={pipelineEnabledShots}
@@ -332,7 +482,6 @@ function App() {
                   onUserNotesChange={setPipelineUserNotes}
                 />
               )}
-
               {status === "idle" && (
                 <button
                   onClick={startPipeline}
@@ -344,13 +493,11 @@ function App() {
                     : `Pipeline Başlat  ·  ${pipelineEnabledShots.size} görsel`}
                 </button>
               )}
-
               {analysis && (status === "pipeline-running" || status === "pipeline-done") && (
                 <AnalysisCard analysis={analysis} />
               )}
             </div>
-
-            <div className="lg:col-span-8">
+            <div className="col-span-8">
               <AnimatePresence mode="wait">
                 {status === "analyzing" && (
                   <div key="analyzing" className="bg-surface rounded-xl border border-border overflow-hidden">
@@ -377,12 +524,11 @@ function App() {
           </div>
         )}
 
-        {/* ═══ SINGLE MODES ═══ */}
+        {/* SINGLE MODES */}
         {!isPipeline && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <div className="lg:col-span-4 space-y-3">
+          <div className="grid grid-cols-12 gap-5">
+            <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
-
               <SettingsPanel
                 mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
                 selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
@@ -391,7 +537,6 @@ function App() {
                 pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
                 userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
               />
-
               {status === "idle" && (
                 <button
                   onClick={startAnalysis}
@@ -401,7 +546,6 @@ function App() {
                   {files.length === 0 ? "Önce fotoğraf yükleyin" : "Analiz Et ve Üret"}
                 </button>
               )}
-
               {status === "selection" && (
                 <button
                   onClick={generateFromSelection}
@@ -410,11 +554,9 @@ function App() {
                   {mode === "infographic" ? `İnfografik Oluştur  ·  ${selectedBadges.size} etiket` : "Seçilen Açıyla Üret"}
                 </button>
               )}
-
               {analysis && <AnalysisCard analysis={analysis} />}
             </div>
-
-            <div className="lg:col-span-8">
+            <div className="col-span-8">
               <AnimatePresence mode="wait">
                 {(status === "analyzing" || status === "generating") && (
                   <div key="loading" className="bg-surface rounded-xl border border-border overflow-hidden">
@@ -470,7 +612,7 @@ function App() {
         )}
       </main>
 
-      <footer className="mt-14 py-5 border-t border-border-subtle">
+      <footer className="hidden md:block mt-14 py-5 border-t border-border-subtle">
         <div className="max-w-7xl mx-auto px-5 flex items-center justify-between">
           <p className="text-[11px] text-subtle font-mono">ProShop Studio — AI ile profesyonel ürün fotoğrafı</p>
           <button
