@@ -167,8 +167,6 @@ function App() {
     }
   };
 
-  const startSocialMediaFromPipeline = () => startSocialMediaPipeline(true);
-
   const generateSeoCard = async () => {
     if (!analysis) return;
     setSeoGenerating(true);
