@@ -98,7 +98,7 @@ async function generateSmImage(
   throw new Error("Görsel oluşturulamadı.");
 }
 
-// ===== BANNER PROMPT — BannerGenius style with gradient rules =====
+// ===== BANNER PROMPT — Luxury typography system based on Zara Home / RH research =====
 const BANNER_PROMPT = (
   generationPrompt: string,
   signatureDetails: string,
@@ -106,56 +106,84 @@ const BANNER_PROMPT = (
   brandName: string,
   textInstructions: string,
   aspectRatio: string,
-) => `You are a World-Class Art Director & Social Media Designer creating a premium marketing banner.
+) => `You are creating a luxury bedding brand social media advertisement — the quality level of Zara Home, Restoration Hardware, and West Elm.
 
 PRODUCT CONTEXT:
 ${generationPrompt}
 
 PRODUCT DETAILS: ${signatureDetails}
 
-═══ DESIGN SYSTEM (MANDATORY) ═══
+═══ LUXURY DESIGN SYSTEM (FOLLOW EXACTLY) ═══
 
-LAYOUT RULES:
-- The product (bedding set) is the HERO element — occupying 60-70% of the frame.
-- Product must be beautifully styled on a bed in a premium bedroom setting.
-- Warm, cinematic lighting with soft shadows.
+PHOTOGRAPHY:
+- Product (bedding set) occupies 60-70% of the frame, beautifully styled on a bed.
+- Warm natural window light (~4200K color temperature), soft directional shadows.
+- Premium bedroom setting: light oak floors, warm plaster walls, linen curtains.
+- Shot with a high-end camera: shallow-to-medium depth of field, cinematic bokeh.
 - Composition optimized for ${aspectRatio} aspect ratio.
 
-GRADIENT OVERLAY (MANDATORY):
-- Apply a smooth gradient overlay on the image to create a text-safe zone.
-- The gradient should flow from transparent (where the product is) to a rich, dark color (where the text is).
-- Use warm tones: deep charcoal (#1a1a2e), warm black (#0d0d0d), or dark navy (#0a1628).
-- The gradient must be SMOOTH, CINEMATIC, and PROFESSIONAL — not harsh or flat.
-- Gradient opacity: 40-70% in the text zone, 0-10% on the product zone.
+GRADIENT OVERLAY:
+- Apply a SUBTLE warm gradient to create a text-safe zone.
+- Gradient flows from fully transparent (product area) to a warm dark tone in the text area.
+- Text zone color: warm charcoal (#2B1C10) or deep taupe (#443737) — NEVER pure black.
+- Gradient opacity: 15-30% maximum — subtle and cinematic, NOT heavy or flat.
+- The gradient should feel like natural shadow, not a digital overlay.
 
-TYPOGRAPHY RULES (CRITICAL):
+═══ TYPOGRAPHY SYSTEM (CRITICAL — THIS DEFINES QUALITY) ═══
+
+HIERARCHY (exactly 3 levels):
+1. HEADLINE: Elegant THIN SERIF typeface (like Playfair Display or Didot style).
+   - Color: warm cream (#F4E1D2) or champagne (#E1D4C1) — NEVER pure white.
+   - Weight: Regular to Light — NOT bold. Thin serifs are the luxury signal.
+   - Wide letter-spacing for elegance.
+   - Maximum 3-4 words.
+
+2. SUBHEADLINE: Clean geometric SANS-SERIF (like Montserrat or Avenir style).
+   - Color: muted warm tone (#C6AC8E) or dusty rose (#D5AA9F).
+   - Weight: Light (300).
+   - Slightly smaller than headline.
+   - Wide letter-spacing (+50-100 tracking).
+
+3. CTA / DETAIL: Same sans-serif, even smaller.
+   - Color: same as subheadline but slightly more muted.
+   - Uppercase with very wide letter-spacing.
+
+TYPOGRAPHY RULES:
 - ALL text MUST be in TURKISH.
-- Use CLEAN, MODERN, PREMIUM typography — think luxury brand advertising.
-- Headline: Large, bold, sans-serif or elegant serif font. WHITE or CREAM color.
-- Subtext/slogan: Lighter weight, smaller size. Warm white or gold (#d4a574) color.
-- Text must have HIGH CONTRAST against the gradient background — fully readable.
-- Letter spacing: slightly expanded for elegance.
-- DO NOT use cheap, tacky, or amateur-looking fonts.
-- Text placement must be in the gradient zone, NOT overlapping the product.
+- NEVER use pure black (#000000) or pure white (#FFFFFF) for text.
+- NEVER use bold, heavy, or thick fonts — luxury = thin, elegant, restrained.
+- NEVER use more than 2 font styles (one serif + one sans-serif).
+- Text occupies maximum 20-30% of total image area — the rest is breathing room.
+- Left-aligned text preferred. Minimum 10% margin from all edges.
+- The typography should whisper luxury, not shout it.
 
-${brandName ? `BRAND: Display "${brandName}" in small, elegant text — corner or bottom.` : ""}
+WHAT MAKES IT LOOK CHEAP (AVOID ALL OF THESE):
+- Thick/bold fonts, heavy drop shadows on text
+- Pure black or pure white text colors
+- Text covering more than 30% of the image
+- Bright saturated accent colors clashing with the product
+- Generic, template-looking layouts
+- Multiple competing font weights or styles
+- Text directly overlapping the product without gradient separation
+
+${brandName ? `BRAND: "${brandName}" — display in ultra-thin, small sans-serif at bottom corner with very wide letter-spacing. Understated.` : ""}
 
 TEXT CONTENT (IN TURKISH):
 ${textInstructions}
 
-═══ CRITICAL RULES ═══
+═══ FINAL QUALITY CHECK ═══
+- The result must look like it was designed by a luxury brand's in-house creative team.
+- Reference: Zara Home, Restoration Hardware, Parachute, Boll & Branch Instagram aesthetic.
 - Product colors, embroidery, and textile details MUST match reference images EXACTLY.
-- NO people in the image.
-- The final result must look like a high-budget social media advertisement — NOT a cheap template.
-- Think: luxury bedding brand Instagram page, Restoration Hardware, Zara Home level quality.`;
+- NO people. Add subtle grain/texture for premium depth (not sterile AI look).`;
 
-// ===== LIFESTYLE PROMPT — cinematic quality =====
+// ===== LIFESTYLE PROMPT — editorial magazine quality =====
 const LIFESTYLE_PROMPT = (
   generationPrompt: string,
   signatureDetails: string,
   sceneInstructions: string,
   aspectRatio: string
-) => `You are a World-Class Product Photographer creating an editorial lifestyle photograph.
+) => `Create an editorial lifestyle photograph for a luxury bedding brand — Zara Home or Restoration Hardware catalog quality.
 
 PRODUCT CONTEXT:
 ${generationPrompt}
@@ -166,23 +194,24 @@ PRODUCT DETAILS: ${signatureDetails}
 
 SCENE: ${sceneInstructions}
 
-CAMERA & LIGHTING:
-- Shot with a high-end DSLR (Canon 5D Mark IV or Sony A7R V).
-- Natural window light, warm color temperature (~4200K).
-- Shallow to medium depth of field for cinematic bokeh.
-- Professional color grading: warm, inviting, slightly desaturated for editorial feel.
+CAMERA & TECHNICAL:
+- Shot with Canon 5D Mark IV, natural window light (~4200K warm).
+- Shallow-to-medium depth of field, cinematic bokeh on background elements.
+- Color grading: warm, slightly desaturated, muted tonal palette.
+- Palette reference: warm creams (#F5ECE6), dusty beige (#E1D4C1), soft taupe (#B2B0A1).
+- Add subtle film grain (2-3%) for authentic, non-sterile feel.
 
 COMPOSITION:
 - Optimized for ${aspectRatio} aspect ratio.
-- Rule of thirds, leading lines, visual flow.
-- Magazine/catalog quality — Restoration Hardware or Zara Home level.
+- Rule of thirds. Generous negative space. Magazine editorial framing.
+- The product must feel effortlessly styled — "lived-in luxury" not "showroom perfect."
 
 ═══ CRITICAL RULES ═══
 - NO text, NO labels, NO watermarks on the image.
-- Must look like a GENUINE DSLR photograph — NOT CGI or AI-generated looking.
+- Must look like a GENUINE photograph — NOT CGI or AI-generated.
 - Product colors, embroidery, and textile details MUST match reference images EXACTLY.
-- NO people in the image.
-- NO extra textile products not shown in references.`;
+- NO people. NO extra textile products not in references.
+- The mood should make the viewer think "I want this bedroom."`;
 
 export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
   // ═══ GROUP A: Text Banner Visuals ═══
@@ -196,9 +225,9 @@ export const SOCIAL_MEDIA_SHOTS: SocialMediaShot[] = [
     description: "Ürün ismi + slogan + logo ile feed görseli",
     promptBuilder: (gp, sig, productName, brandName) =>
       BANNER_PROMPT(gp, sig, productName, brandName,
-        `HEADLINE: "${productName}" — large, bold, premium serif or sans-serif typography.
-SLOGAN: Generate a short, aspirational Turkish marketing slogan (e.g., "Hayalinizdeki Konfor", "Lüks Dokunuş, Her Gece", "Evinize Premium Dokunuş").
-PLACEMENT: Headline at top or bottom third of image. Slogan just below headline.`,
+        `LEVEL 1 — HEADLINE (thin elegant serif, cream #F4E1D2): "${productName}"
+LEVEL 2 — SUBHEADLINE (light sans-serif, wide letter-spacing, dusty rose #D5AA9F): A 2-3 word Turkish luxury phrase like "Eşsiz Konfor" or "Premium Dokunuş"
+LAYOUT: "Editorial Left" pattern — text anchored to bottom-left third. Warm gradient (#2B1C10, 20% opacity) at bottom. Product fills upper 70%.`,
         "4:5"),
   },
   {
@@ -211,11 +240,11 @@ PLACEMENT: Headline at top or bottom third of image. Slogan just below headline.
     description: "Tam ekran story formatında tanıtım",
     promptBuilder: (gp, sig, productName, brandName) =>
       BANNER_PROMPT(gp, sig, productName, brandName,
-        `Full-screen vertical story format (9:16).
-HEADLINE: "${productName}" — bold, centered, large typography at top third.
-SUBTEXT: A bold Turkish attention line like "YENİ KOLEKSİYON" or "PREMIUM KALİTE".
-CTA: At the very bottom, a swipe-up style call-to-action: "Keşfet →" or "İncele →" in smaller text.
-GRADIENT: Bottom-to-top gradient — darker at bottom for CTA readability, transparent at center for product visibility.`,
+        `Full-screen vertical story (9:16).
+LEVEL 1 — HEADLINE (thin serif, champagne #E1D4C1, centered, top third): "${productName}"
+LEVEL 2 — SUBHEADLINE (light sans-serif, ultra-wide tracking, uppercase, muted #C6AC8E): "YENİ KOLEKSİYON" or "PREMIUM KALİTE"
+LEVEL 3 — CTA (tiny sans-serif, widest tracking, bottom 10%): "Keşfet →"
+GRADIENT: Soft bottom-to-top warm gradient (#2B1C10) — 20% at bottom for CTA, transparent center.`,
         "9:16"),
   },
   {
@@ -228,14 +257,11 @@ GRADIENT: Bottom-to-top gradient — darker at bottom for CTA readability, trans
     description: "Carousel açılış kartı, ürün tanıtımı",
     promptBuilder: (gp, sig, productName, brandName) =>
       BANNER_PROMPT(gp, sig, productName, brandName,
-        `Opening card of a carousel series.
-HEADLINE: "${productName}" — hero headline, large and bold.
-FEATURES: 2-3 key product features in Turkish, displayed as a clean list:
-  "✓ %100 Pamuk Saten"
-  "✓ Nakışlı Tasarım"
-  "✓ Premium Kalite"
-PLACEMENT: Text block at bottom third with gradient overlay. Product dominant in upper 2/3.
-STYLE: Clean, modern, makes the viewer want to SWIPE for more.`,
+        `Carousel opening card.
+LEVEL 1 — HEADLINE (thin serif, cream #F4E1D2): "${productName}"
+LEVEL 2 — FEATURES (light sans-serif, wide tracking, #C6AC8E, small):
+  "✓ %100 Pamuk" and "✓ Nakışlı Tasarım" — max 2 lines, minimal text.
+LAYOUT: "Split Frame" — left 35% has warm solid color block (#2B1C10, 90% opacity) with text, right 65% is edge-to-edge product photo. Clean separation.`,
         "4:5"),
   },
 
@@ -291,11 +317,10 @@ STYLE: Clean, modern, makes the viewer want to SWIPE for more.`,
     description: "Kapanış kartı, slogan + CTA",
     promptBuilder: (gp, sig, productName, brandName) =>
       BANNER_PROMPT(gp, sig, productName, brandName,
-        `Final closing card of the carousel series — CTA focused.
-HEADLINE: A compelling Turkish call-to-action: "Şimdi Keşfet" or "Hemen İncele" — LARGE, BOLD, centered.
-SUBTEXT: "${productName}" displayed smaller below the CTA.
-GRADIENT: Full gradient overlay — product visible but muted, text is the DOMINANT element.
-STYLE: Premium, luxurious, drives action. Think luxury brand final slide.`,
+        `Carousel closing card — CTA focused.
+LEVEL 1 — CTA HEADLINE (thin serif, large, cream #F4E1D2, centered): "Keşfet" — single word, maximum impact.
+LEVEL 2 — PRODUCT NAME (light sans-serif, wide tracking, #C6AC8E, smaller): "${productName}"
+LAYOUT: "Centered Minimal" — product fills background with 30% warm overlay (#2B1C10). Text perfectly centered. Maximum white space around text. The simplicity IS the luxury.`,
         "4:5"),
   },
 ];
