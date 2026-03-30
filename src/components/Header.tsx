@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { AppMode } from "../types";
+import { ThemeToggle } from "./ThemeToggle";
 
 const modes: { id: AppMode; label: string; icon: React.ReactNode }[] = [
   {
@@ -121,12 +122,13 @@ export function Header({ mode, onModeChange }: HeaderProps) {
             ))}
           </select>
 
-          {/* Status */}
-          <div className="hidden lg:flex items-center gap-4 shrink-0">
-            <div className="flex items-center gap-1.5">
+          {/* Actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="hidden lg:flex items-center gap-1.5 mr-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-dot" />
               <span className="text-[10px] font-mono text-subtle">Gemini 3.1</span>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </div>
