@@ -37,8 +37,8 @@ export interface UploadedFile {
   base64: string;
 }
 
-export type AppMode = 'pipeline' | 'photography' | 'infographic' | 'box-content' | 'angles';
-export type ProcessStep = 'idle' | 'analyzing' | 'selection' | 'generating' | 'done' | 'error' | 'pipeline-running' | 'pipeline-done';
+export type AppMode = 'pipeline' | 'photography' | 'infographic' | 'box-content' | 'angles' | 'social-media';
+export type ProcessStep = 'idle' | 'analyzing' | 'selection' | 'generating' | 'done' | 'error' | 'pipeline-running' | 'pipeline-done' | 'social-media-running' | 'social-media-done';
 
 export interface AngleOption {
   id: string;
