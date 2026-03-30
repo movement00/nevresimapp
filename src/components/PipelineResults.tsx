@@ -7,9 +7,10 @@ interface PipelineResultsProps {
   onReset: () => void;
   onRetryShot: (shotId: string) => void;
   onReviseShot?: (shotId: string, instruction: string) => void;
+  onStartSocialMedia?: () => void;
 }
 
-export function PipelineResults({ results, onReset, onRetryShot, onReviseShot }: PipelineResultsProps) {
+export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, onStartSocialMedia }: PipelineResultsProps) {
   const [zoomedImage, setZoomedImage] = useState<{ url: string; label: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [reviseId, setReviseId] = useState<string | null>(null);
@@ -107,6 +108,15 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot }:
             </button>
           </div>
         </div>
+
+        {onStartSocialMedia && (
+          <button
+            onClick={onStartSocialMedia}
+            className="w-full py-3 bg-accent text-black rounded-lg font-display font-700 text-sm hover:bg-accent-hover transition-colors active:scale-[0.99] shadow-[0_4px_20px_rgba(232,160,32,0.25)]"
+          >
+            Sosyal Medya Paketi Oluştur →
+          </button>
+        )}
 
         {/* Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">

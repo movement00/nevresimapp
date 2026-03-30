@@ -10,6 +10,8 @@ interface PipelineConfigProps {
   onPieceCountChange: (count: number) => void;
   userNotes: string;
   onUserNotesChange: (notes: string) => void;
+  autoSocialMedia: boolean;
+  onAutoSocialMediaChange: (value: boolean) => void;
 }
 
 const GROUP_META: Record<string, { label: string; color: string }> = {
@@ -23,6 +25,7 @@ export function PipelineConfig({
   aspectRatio, onAspectRatioChange,
   pieceCount, onPieceCountChange,
   userNotes, onUserNotesChange,
+  autoSocialMedia, onAutoSocialMediaChange,
 }: PipelineConfigProps) {
   const toggleShot = (id: string) => {
     const next = new Set(enabledShots);
@@ -149,6 +152,24 @@ export function PipelineConfig({
           rows={3}
           className="w-full px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle resize-none focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
         />
+      </div>
+
+      {/* Social Media Auto-Generate */}
+      <div className="flex items-center gap-2.5 p-3 bg-bg border border-border rounded-lg">
+        <button
+          onClick={() => onAutoSocialMediaChange(!autoSocialMedia)}
+          className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border transition-all ${
+            autoSocialMedia ? "bg-accent border-accent" : "border-border"
+          }`}
+        >
+          {autoSocialMedia && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+          )}
+        </button>
+        <div>
+          <div className="text-xs font-medium text-text">Sosyal Medya Paketi</div>
+          <div className="text-[10px] text-subtle">Bitince 7 görselden SM paketi de üret</div>
+        </div>
       </div>
     </div>
   );
