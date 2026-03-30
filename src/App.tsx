@@ -99,6 +99,7 @@ function App() {
 
   const [seoData, setSeoData] = useState<SeoProductData | null>(null);
   const [seoGenerating, setSeoGenerating] = useState(false);
+  const [seoProductInfo, setSeoProductInfo] = useState("");
 
   const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
 
@@ -195,7 +196,8 @@ function App() {
 
       const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
       const pieceInfo = piecePreset?.pieces ?? "";
-      const result = await generateSeoTexts(currentAnalysis, pieceInfo, pipelineUserNotes);
+      const allNotes = [pipelineUserNotes, seoProductInfo].filter(Boolean).join("\n");
+      const result = await generateSeoTexts(currentAnalysis, pieceInfo, allNotes);
       setSeoData(result);
     } catch (err: any) {
       console.error("SEO generation error:", err);
@@ -517,14 +519,25 @@ function App() {
           onAutoSocialMediaChange={setAutoSocialMedia}
         />
       ) : isSeoContent ? (
-        <SettingsPanel
-          mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
-          selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
-          selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
-          boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
-          pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
-          userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
-        />
+        <div className="space-y-3">
+          <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+            <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Sayısı</span>
+            <div className="flex flex-wrap gap-2">
+              {PIECE_PRESETS.map((p) => (
+                <button key={p.count} onClick={() => setPipelinePieceCount(p.count)}
+                  className={`px-3 py-2 min-h-[44px] rounded-lg border text-xs font-medium transition-all ${
+                    pipelinePieceCount === p.count ? "bg-accent text-black border-accent" : "bg-bg text-muted border-border hover:border-accent/40"
+                  }`}>{p.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+            <span className="text-[10px] font-mono text-accent uppercase tracking-wider">Ürün Bilgileri (İsteğe Bağlı)</span>
+            <textarea value={seoProductInfo} onChange={(e) => setSeoProductInfo(e.target.value)} rows={4}
+              placeholder="Örn: Model adı: Alova, %100 pamuk saten, ağaç desen nakışlı, ekru/bej renk..."
+              className="w-full px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle focus:border-accent/60 focus:ring-1 focus:ring-accent/20 outline-none resize-y transition-colors" />
+          </div>
+        </div>
       ) : isSocialMedia ? (
         <SocialMediaConfig
           brandName={smBrandName}
@@ -883,14 +896,39 @@ function App() {
             <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
 
-              <SettingsPanel
-                mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
-                selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
-                selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
-                boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
-                pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
-                userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
-              />
+              {/* Parça Sayısı */}
+              <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+                <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Sayısı</span>
+                <div className="flex flex-wrap gap-2">
+                  {PIECE_PRESETS.map((p) => (
+                    <button
+                      key={p.count}
+                      onClick={() => setPipelinePieceCount(p.count)}
+                      className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg border text-xs font-medium transition-all ${
+                        pipelinePieceCount === p.count
+                          ? "bg-accent text-black border-accent"
+                          : "bg-bg text-muted border-border hover:border-accent/40"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-subtle">{PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces}</p>
+              </div>
+
+              {/* Ürün Ek Bilgileri */}
+              <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+                <span className="text-[10px] font-mono text-accent uppercase tracking-wider">Ürün Bilgileri (İsteğe Bağlı)</span>
+                <p className="text-[10px] text-subtle">Model adı, kumaş tipi, renk, özellikler gibi bilgileri yazın. SEO metinleri bu bilgilere göre zenginleştirilir.</p>
+                <textarea
+                  value={seoProductInfo}
+                  onChange={(e) => setSeoProductInfo(e.target.value)}
+                  rows={4}
+                  placeholder="Örn: Model adı: Alova, %100 pamuk saten kumaş, ağaç desen nakışlı, ekru/bej renk, triko battaniyeli set, çeyizlik kalite..."
+                  className="w-full px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle focus:border-accent/60 focus:ring-1 focus:ring-accent/20 outline-none resize-y transition-colors"
+                />
+              </div>
 
               {!seoData && !seoGenerating && (
                 <button
