@@ -8,6 +8,8 @@ import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
 import type { PipelineProgress, PipelineResult as PipelineResultType } from "./services/pipelineService";
 import { SOCIAL_MEDIA_SHOTS, runSocialMediaPipeline } from "./services/socialMediaService";
 import type { SocialMediaProgress, SocialMediaResult as SocialMediaResultType } from "./services/socialMediaService";
+import { generateSeoTexts } from "./services/seoService";
+import type { SeoProductData } from "./services/seoService";
 
 import { ApiKeyInput } from "./components/ApiKeyInput";
 import { Header } from "./components/Header";
@@ -21,6 +23,7 @@ import { PipelineProgressView } from "./components/PipelineProgress";
 import { PipelineResults } from "./components/PipelineResults";
 import { SocialMediaConfig } from "./components/SocialMediaConfig";
 import { SocialMediaResults } from "./components/SocialMediaResults";
+import { SeoProductCard } from "./components/SeoProductCard";
 import { MobileWizard } from "./components/MobileWizard";
 import { ModeSelector } from "./components/ModeSelector";
 import type { WizardStep } from "./components/BottomNav";
@@ -89,6 +92,9 @@ function App() {
   const [smProgress, setSmProgress] = useState<SocialMediaProgress | null>(null);
   const [smResults, setSmResults] = useState<SocialMediaResultType[]>([]);
   const [autoSocialMedia, setAutoSocialMedia] = useState(false);
+
+  const [seoData, setSeoData] = useState<SeoProductData | null>(null);
+  const [seoGenerating, setSeoGenerating] = useState(false);
 
   const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
 
@@ -163,6 +169,35 @@ function App() {
 
   const startSocialMediaFromPipeline = () => startSocialMediaPipeline(true);
 
+  const generateSeoCard = async () => {
+    if (!analysis) return;
+    setSeoGenerating(true);
+    try {
+      const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+      const pieceInfo = piecePreset?.pieces ?? "";
+      const result = await generateSeoTexts(analysis, pieceInfo, pipelineUserNotes);
+      setSeoData(result);
+    } catch (err: any) {
+      console.error("SEO generation error:", err);
+      // Fallback — use analysis data directly
+      setSeoData({
+        seoTitle: analysis.suggestedTitle || "",
+        metaDescription: analysis.marketingDescription || "",
+        shortDescription: analysis.marketingDescription || "",
+        longDescription: "",
+        keywords: [],
+        pieceList: [],
+      });
+    } finally {
+      setSeoGenerating(false);
+    }
+  };
+
+  const handleSeoApprove = () => {
+    // After SEO card is approved, start social media pipeline
+    startSocialMediaPipeline(true);
+  };
+
   const retrySocialMediaShot = async (shotId: string) => {
     const shot = SOCIAL_MEDIA_SHOTS.find(s => s.id === shotId);
     if (!shot || !analysis) return;
@@ -222,6 +257,9 @@ function App() {
       );
       setPipelineResults(results);
       setStatus("pipeline-done");
+      if (autoSocialMedia) {
+        setTimeout(() => generateSeoCard(), 500);
+      }
     } catch (err: any) { handleError(err); }
   };
 
@@ -369,6 +407,7 @@ function App() {
     setAnalysis(null); setInfographicAnalysis(null); setBoxContentAnalysis(null);
     setAnglesAnalysis(null); setPipelineProgress(null); setPipelineResults([]);
     setSmProgress(null); setSmResults([]); setErrorMessage("");
+    setSeoData(null); setSeoGenerating(false);
   };
 
   if (!apiReady) return <ApiKeyInput onReady={() => setApiReady(true)} />;
@@ -520,7 +559,17 @@ function App() {
           <PipelineProgressView key="progress" progress={pipelineProgress} />
         )}
         {status === "pipeline-done" && pipelineResults.length > 0 && (
-          <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={startSocialMediaFromPipeline} />
+          <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />
+        )}
+        {(seoGenerating || seoData) && status === "pipeline-done" && (
+          <div className="mt-4">
+            <SeoProductCard
+              data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
+              onChange={setSeoData}
+              onApprove={handleSeoApprove}
+              isGenerating={seoGenerating}
+            />
+          </div>
         )}
         {status === "social-media-running" && smProgress && (
           <PipelineProgressView key="sm-progress" progress={{
@@ -653,7 +702,45 @@ function App() {
                   <PipelineProgressView key="progress" progress={pipelineProgress} />
                 )}
                 {status === "pipeline-done" && pipelineResults.length > 0 && (
-                  <PipelineResults key="results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={startSocialMediaFromPipeline} />
+                  <PipelineResults key="results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />
+                )}
+                {(seoGenerating || seoData) && status === "pipeline-done" && (
+                  <div className="mt-4">
+                    <SeoProductCard
+                      data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
+                      onChange={setSeoData}
+                      onApprove={handleSeoApprove}
+                      isGenerating={seoGenerating}
+                    />
+                  </div>
+                )}
+                {status === "social-media-running" && smProgress && (
+                  <div className="mt-4">
+                    <PipelineProgressView key="sm-progress-inline" progress={{
+                      currentGroup: smProgress.currentGroup,
+                      currentShot: smProgress.currentShot,
+                      completedCount: smProgress.completedCount,
+                      totalCount: smProgress.totalCount,
+                      results: smProgress.results.map(r => ({
+                        id: r.id,
+                        label: r.label,
+                        imageUrl: r.imageUrl,
+                        status: r.status,
+                        error: r.error,
+                      })),
+                    }} />
+                  </div>
+                )}
+                {status === "social-media-done" && smResults.length > 0 && (
+                  <div className="mt-4">
+                    <SocialMediaResults
+                      key="sm-results-inline"
+                      results={smResults}
+                      onReset={reset}
+                      onRetryShot={retrySocialMediaShot}
+                      onReviseShot={reviseSocialMediaShot}
+                    />
+                  </div>
                 )}
                 {status === "error" && <ErrorState key="error" />}
                 {status === "idle" && (
@@ -790,7 +877,45 @@ function App() {
                   <PipelineProgressView key="pipeline-progress" progress={pipelineProgress} />
                 )}
                 {status === "pipeline-done" && pipelineResults.length > 0 && (
-                  <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} />
+                  <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />
+                )}
+                {(seoGenerating || seoData) && status === "pipeline-done" && (
+                  <div className="mt-4">
+                    <SeoProductCard
+                      data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
+                      onChange={setSeoData}
+                      onApprove={handleSeoApprove}
+                      isGenerating={seoGenerating}
+                    />
+                  </div>
+                )}
+                {status === "social-media-running" && smProgress && (
+                  <div className="mt-4">
+                    <PipelineProgressView key="sm-progress-inline-single" progress={{
+                      currentGroup: smProgress.currentGroup,
+                      currentShot: smProgress.currentShot,
+                      completedCount: smProgress.completedCount,
+                      totalCount: smProgress.totalCount,
+                      results: smProgress.results.map(r => ({
+                        id: r.id,
+                        label: r.label,
+                        imageUrl: r.imageUrl,
+                        status: r.status,
+                        error: r.error,
+                      })),
+                    }} />
+                  </div>
+                )}
+                {status === "social-media-done" && smResults.length > 0 && (
+                  <div className="mt-4">
+                    <SocialMediaResults
+                      key="sm-results-inline-single"
+                      results={smResults}
+                      onReset={reset}
+                      onRetryShot={retrySocialMediaShot}
+                      onReviseShot={reviseSocialMediaShot}
+                    />
+                  </div>
                 )}
                 {status === "done" && generatedImage && (
                   <ResultView
