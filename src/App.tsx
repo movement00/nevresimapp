@@ -53,6 +53,10 @@ const MODE_COPY: Record<AppMode, { title: string; desc: string }> = {
     title: "Sosyal Medya Paketi",
     desc: "Ürün fotoğraflarınızdan Instagram post, story, carousel ve estetik görseller — 7 parçalık komple sosyal medya seti.",
   },
+  "seo-content": {
+    title: "SEO / Ürün İçeriği",
+    desc: "Ürün fotoğraflarınızdan SEO uyumlu başlık, açıklama, meta description ve anahtar kelimeler oluşturun.",
+  },
 };
 
 function App() {
@@ -167,25 +171,45 @@ function App() {
     }
   };
 
-  const generateSeoCard = async () => {
-    if (!analysis) return;
+  const generateSeoCard = async (standalone = false) => {
+    let currentAnalysis = analysis;
     setSeoGenerating(true);
+    setErrorMessage("");
+
     try {
+      // If no analysis yet (standalone mode), run analysis first
+      if (!currentAnalysis && files.length > 0) {
+        if (standalone) setStatus("analyzing");
+        const b64List = files.map(f => f.base64);
+        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+        const ctx = [
+          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
+          pipelineUserNotes || "",
+        ].filter(Boolean).join("\n");
+        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx || undefined);
+        setAnalysis(currentAnalysis);
+        if (standalone) setStatus("done");
+      }
+
+      if (!currentAnalysis) return;
+
       const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
       const pieceInfo = piecePreset?.pieces ?? "";
-      const result = await generateSeoTexts(analysis, pieceInfo, pipelineUserNotes);
+      const result = await generateSeoTexts(currentAnalysis, pieceInfo, pipelineUserNotes);
       setSeoData(result);
     } catch (err: any) {
       console.error("SEO generation error:", err);
-      // Fallback — use analysis data directly
-      setSeoData({
-        seoTitle: analysis.suggestedTitle || "",
-        metaDescription: analysis.marketingDescription || "",
-        shortDescription: analysis.marketingDescription || "",
-        longDescription: "",
-        keywords: [],
-        pieceList: [],
-      });
+      if (currentAnalysis) {
+        setSeoData({
+          seoTitle: currentAnalysis.suggestedTitle || "",
+          metaDescription: currentAnalysis.marketingDescription || "",
+          shortDescription: currentAnalysis.marketingDescription || "",
+          longDescription: "",
+          keywords: [],
+          pieceList: [],
+        });
+      }
+      if (standalone) handleError(err);
     } finally {
       setSeoGenerating(false);
     }
@@ -414,6 +438,7 @@ function App() {
   const canStart = files.length > 0 && !isProcessing;
   const isPipeline = mode === "pipeline";
   const isSocialMedia = mode === "social-media";
+  const isSeoContent = mode === "seo-content";
   const copy = MODE_COPY[mode];
 
   const ErrorState = () => (
@@ -491,6 +516,15 @@ function App() {
           autoSocialMedia={autoSocialMedia}
           onAutoSocialMediaChange={setAutoSocialMedia}
         />
+      ) : isSeoContent ? (
+        <SettingsPanel
+          mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
+          selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
+          selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
+          boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
+          pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
+          userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
+        />
       ) : isSocialMedia ? (
         <SocialMediaConfig
           brandName={smBrandName}
@@ -535,7 +569,7 @@ function App() {
                 {files.length} fotoğraf · {copy.title}
               </p>
               <button
-                onClick={isPipeline ? startPipeline : isSocialMedia ? () => startSocialMediaPipeline(false) : startAnalysis}
+                onClick={isPipeline ? startPipeline : isSocialMedia ? () => startSocialMediaPipeline(false) : isSeoContent ? () => generateSeoCard(true) : startAnalysis}
                 disabled={!canStart || (isPipeline && pipelineEnabledShots.size === 0) || (isSocialMedia && smEnabledShots.size === 0)}
                 className="w-full py-3.5 bg-accent text-black rounded-xl font-display font-700 text-base hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.99] shadow-[0_4px_20px_rgba(232,160,32,0.25)]"
               >
@@ -543,6 +577,8 @@ function App() {
                   ? `Pipeline Başlat · ${pipelineEnabledShots.size} görsel`
                   : isSocialMedia
                   ? `SM Paketi Oluştur · ${smEnabledShots.size} görsel`
+                  : isSeoContent
+                  ? "SEO İçerik Oluştur"
                   : "Analiz Et ve Üret"}
               </button>
             </div>
@@ -617,6 +653,15 @@ function App() {
               {mode === "infographic" ? `İnfografik Oluştur · ${selectedBadges.size} etiket` : "Seçilen Açıyla Üret"}
             </button>
           </div>
+        )}
+        {isSeoContent && (seoGenerating || seoData) && status !== "pipeline-done" && (
+          <SeoProductCard
+            key="seo-standalone"
+            data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
+            onChange={setSeoData}
+            onApprove={() => {}}
+            isGenerating={seoGenerating}
+          />
         )}
         {status === "error" && <ErrorState key="error" />}
       </AnimatePresence>
@@ -832,7 +877,66 @@ function App() {
         )}
 
         {/* SINGLE MODES */}
-        {!isPipeline && !isSocialMedia && (
+        {/* ═══ SEO CONTENT ═══ */}
+        {isSeoContent && (
+          <div className="grid grid-cols-12 gap-5">
+            <div className="col-span-4 space-y-3">
+              <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
+
+              <SettingsPanel
+                mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
+                selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
+                selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
+                boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
+                pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
+                userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
+              />
+
+              {!seoData && !seoGenerating && (
+                <button
+                  onClick={() => generateSeoCard(true)}
+                  disabled={!canStart}
+                  className="w-full py-3 bg-accent text-black rounded-lg font-semibold text-sm hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.99]"
+                >
+                  {files.length === 0 ? "Önce fotoğraf yükleyin" : "SEO İçerik Oluştur"}
+                </button>
+              )}
+
+              {analysis && <AnalysisCard analysis={analysis} />}
+            </div>
+
+            <div className="col-span-8">
+              <AnimatePresence mode="wait">
+                {status === "analyzing" && (
+                  <div key="analyzing" className="bg-surface rounded-xl border border-border overflow-hidden">
+                    <LoadingState stage="analyzing" />
+                  </div>
+                )}
+                {(seoGenerating || seoData) && (
+                  <SeoProductCard
+                    key="seo-card"
+                    data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
+                    onChange={setSeoData}
+                    onApprove={() => {}}
+                    isGenerating={seoGenerating}
+                  />
+                )}
+                {status === "error" && <ErrorState key="error" />}
+                {!seoData && !seoGenerating && status !== "analyzing" && (
+                  <EmptyState
+                    key="empty"
+                    icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
+                    title="SEO / Ürün İçeriği"
+                    desc="Fotoğraflarınızı yükleyin, parça sayısını seçin ve SEO içerik oluşturun."
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ SINGLE MODES ═══ */}
+        {!isPipeline && !isSocialMedia && !isSeoContent && (
           <div className="grid grid-cols-12 gap-5">
             <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
