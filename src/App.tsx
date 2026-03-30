@@ -217,8 +217,9 @@ function App() {
     }
   };
 
-  const handleSeoApprove = () => {
-    // After SEO card is approved, start social media pipeline
+  const handleSeoApproveAndStartSM = () => {
+    // Switch to social media mode and start SM pipeline with SEO data
+    setMode("social-media");
     startSocialMediaPipeline(true);
   };
 
@@ -613,7 +614,7 @@ function App() {
             <SeoProductCard
               data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
               onChange={setSeoData}
-              onApprove={handleSeoApprove}
+              onApprove={handleSeoApproveAndStartSM}
               isGenerating={seoGenerating}
             />
           </div>
@@ -672,7 +673,7 @@ function App() {
             key="seo-standalone"
             data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
             onChange={setSeoData}
-            onApprove={() => {}}
+            onApprove={handleSeoApproveAndStartSM}
             isGenerating={seoGenerating}
           />
         )}
@@ -765,7 +766,7 @@ function App() {
                     <SeoProductCard
                       data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
                       onChange={setSeoData}
-                      onApprove={handleSeoApprove}
+                      onApprove={handleSeoApproveAndStartSM}
                       isGenerating={seoGenerating}
                     />
                   </div>
@@ -955,7 +956,7 @@ function App() {
                     key="seo-card"
                     data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
                     onChange={setSeoData}
-                    onApprove={() => {}}
+                    onApprove={handleSeoApproveAndStartSM}
                     isGenerating={seoGenerating}
                   />
                 )}
@@ -1024,7 +1025,7 @@ function App() {
                     <SeoProductCard
                       data={seoData || { seoTitle: "", metaDescription: "", shortDescription: "", longDescription: "", keywords: [], pieceList: [] }}
                       onChange={setSeoData}
-                      onApprove={handleSeoApprove}
+                      onApprove={handleSeoApproveAndStartSM}
                       isGenerating={seoGenerating}
                     />
                   </div>
