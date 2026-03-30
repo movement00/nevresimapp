@@ -19,6 +19,9 @@
   --color-error: #f87171;
   --color-error-dim: #2a0808;
 
+  --shadow-card: rgba(0, 0, 0, 0.5);
+  --shadow-card-border: rgba(255, 255, 255, 0.03);
+
   --font-display: "Syne", sans-serif;
   --font-body: "Instrument Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
@@ -42,6 +45,9 @@
   --color-success-dim: #f0fdf4;
   --color-error: #dc2626;
   --color-error-dim: #fef2f2;
+
+  --shadow-card: rgba(0, 0, 0, 0.12);
+  --shadow-card-border: rgba(0, 0, 0, 0.06);
 }
 
 @layer base {
@@ -105,7 +111,7 @@
 
   /* Warm glow on accent elements */
   .glow-accent {
-    box-shadow: 0 0 0 1px var(--color-accent), 0 0 24px rgba(232, 160, 32, 0.12);
+    box-shadow: 0 0 0 1px var(--color-accent), 0 0 24px color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 
   /* Focused ring utility */
@@ -146,7 +152,7 @@
   }
   @keyframes progress-pulse {
     0%, 100% { opacity: 0.8; }
-    50% { opacity: 1; box-shadow: 0 0 12px rgba(232, 160, 32, 0.5); }
+    50% { opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 50%, transparent); }
   }
   @keyframes scan {
     0% { transform: translateY(-100%); }

@@ -28,7 +28,7 @@ export function ApiKeyInput({ onReady }: ApiKeyInputProps) {
       {/* Warm amber glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full opacity-[0.06]"
-          style={{ background: "radial-gradient(ellipse at center, #e8a020 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(ellipse at center, var(--color-accent) 0%, transparent 70%)" }}
         />
       </div>
 
@@ -74,7 +74,7 @@ export function ApiKeyInput({ onReady }: ApiKeyInputProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
           className="bg-surface border border-border rounded-2xl p-6 space-y-4"
-          style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03)" }}
+          style={{ boxShadow: "0 24px 64px var(--shadow-card), 0 0 0 1px var(--shadow-card-border)" }}
         >
           <div>
             <div className="flex items-center justify-between mb-2">
