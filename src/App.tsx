@@ -6,6 +6,8 @@ import { setApiKey } from "./services/geminiService";
 import * as api from "./services/geminiService";
 import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
 import type { PipelineProgress, PipelineResult as PipelineResultType } from "./services/pipelineService";
+import { SOCIAL_MEDIA_SHOTS, runSocialMediaPipeline } from "./services/socialMediaService";
+import type { SocialMediaProgress, SocialMediaResult as SocialMediaResultType } from "./services/socialMediaService";
 
 import { ApiKeyInput } from "./components/ApiKeyInput";
 import { Header } from "./components/Header";
@@ -17,6 +19,8 @@ import { ResultView } from "./components/ResultView";
 import { PipelineConfig } from "./components/PipelineConfig";
 import { PipelineProgressView } from "./components/PipelineProgress";
 import { PipelineResults } from "./components/PipelineResults";
+import { SocialMediaConfig } from "./components/SocialMediaConfig";
+import { SocialMediaResults } from "./components/SocialMediaResults";
 import { MobileWizard } from "./components/MobileWizard";
 import { ModeSelector } from "./components/ModeSelector";
 import type { WizardStep } from "./components/BottomNav";
@@ -41,6 +45,10 @@ const MODE_COPY: Record<AppMode, { title: string; desc: string }> = {
   angles: {
     title: "Farklı Açı Çekimleri",
     desc: "Ürününüzü farklı kamera açılarından profesyonel olarak görüntüleyin.",
+  },
+  "social-media": {
+    title: "Sosyal Medya Paketi",
+    desc: "Ürün fotoğraflarınızdan Instagram post, story, carousel ve estetik görseller — 7 parçalık komple sosyal medya seti.",
   },
 };
 
@@ -75,6 +83,13 @@ function App() {
   const [pipelineProgress, setPipelineProgress] = useState<PipelineProgress | null>(null);
   const [pipelineResults, setPipelineResults] = useState<PipelineResultType[]>([]);
 
+  const [smBrandName, setSmBrandName] = useState(() => localStorage.getItem("proshop_brand_name") || "");
+  const [smLogoBase64, setSmLogoBase64] = useState<string | undefined>(() => localStorage.getItem("proshop_logo") || undefined);
+  const [smEnabledShots, setSmEnabledShots] = useState<Set<string>>(new Set(SOCIAL_MEDIA_SHOTS.map(s => s.id)));
+  const [smProgress, setSmProgress] = useState<SocialMediaProgress | null>(null);
+  const [smResults, setSmResults] = useState<SocialMediaResultType[]>([]);
+  const [autoSocialMedia, setAutoSocialMedia] = useState(false);
+
   const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
 
   const handleModeChange = (newMode: AppMode) => {
@@ -82,6 +97,11 @@ function App() {
     setAnalysis(null); setInfographicAnalysis(null); setBoxContentAnalysis(null);
     setAnglesAnalysis(null); setGeneratedImage(null); setSelectedBadges(new Set());
     setPipelineProgress(null); setPipelineResults([]); setStatus("idle");
+  };
+
+  const handleBrandNameChange = (name: string) => {
+    setSmBrandName(name);
+    localStorage.setItem("proshop_brand_name", name);
   };
 
   const handleBadgeToggle = (badge: string) => {
@@ -95,6 +115,90 @@ function App() {
     console.error(error);
     setErrorMessage(error.message || "Bir hata oluştu.");
     setStatus("error");
+  };
+
+  const startSocialMediaPipeline = async (fromPipeline = false) => {
+    if (files.length === 0 && !fromPipeline) return;
+    setStatus("social-media-running");
+    setErrorMessage("");
+
+    const b64List = files.map(f => f.base64);
+    const allRefs = fromPipeline && pipelineResults.length > 0
+      ? [...b64List, ...pipelineResults.filter(r => r.imageUrl).map(r => r.imageUrl!)]
+      : b64List;
+
+    try {
+      let currentAnalysis = analysis;
+      if (!currentAnalysis) {
+        setStatus("analyzing");
+        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+        const ctx = [
+          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
+          pipelineUserNotes || "",
+        ].filter(Boolean).join("\n");
+        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx || undefined);
+        setAnalysis(currentAnalysis);
+        setStatus("social-media-running");
+      }
+
+      const productName = currentAnalysis.suggestedTitle || "Premium Nevresim Seti";
+
+      const results = await runSocialMediaPipeline(
+        allRefs,
+        currentAnalysis.generationPrompt,
+        currentAnalysis.signatureDetails,
+        productName,
+        smBrandName,
+        Array.from(smEnabledShots),
+        smLogoBase64,
+        (progress) => setSmProgress({ ...progress })
+      );
+
+      setSmResults(results);
+      setStatus("social-media-done");
+    } catch (err: any) {
+      handleError(err);
+    }
+  };
+
+  const startSocialMediaFromPipeline = () => startSocialMediaPipeline(true);
+
+  const retrySocialMediaShot = async (shotId: string) => {
+    const shot = SOCIAL_MEDIA_SHOTS.find(s => s.id === shotId);
+    if (!shot || !analysis) return;
+
+    setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const, error: undefined } : r));
+
+    try {
+      const b64List = files.map(f => f.base64);
+      const productName = analysis.suggestedTitle || "Premium Nevresim Seti";
+      const prompt = shot.promptBuilder(
+        analysis.generationPrompt,
+        analysis.signatureDetails,
+        productName,
+        smBrandName,
+        smLogoBase64
+      );
+      const imageUrl = await api.generateImageRaw(prompt, b64List, shot.aspectRatio, shot.hasText);
+      setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
+    } catch (err: any) {
+      setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
+    }
+  };
+
+  const reviseSocialMediaShot = async (shotId: string, instruction: string) => {
+    const current = smResults.find(r => r.id === shotId);
+    if (!current?.imageUrl) return;
+    const currentUrl = current.imageUrl;
+
+    setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const } : r));
+
+    try {
+      const revisedUrl = await api.reviseGeneratedImage(currentUrl, instruction, current.aspectRatio);
+      setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: revisedUrl, status: "done" as const } : r));
+    } catch (err: any) {
+      setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: currentUrl, status: "done" as const, error: err.message } : r));
+    }
   };
 
   const startPipeline = async () => {
@@ -263,14 +367,16 @@ function App() {
   const reset = () => {
     setFiles([]); setStatus("idle"); setGeneratedImage(null); setBoxContentText("");
     setAnalysis(null); setInfographicAnalysis(null); setBoxContentAnalysis(null);
-    setAnglesAnalysis(null); setPipelineProgress(null); setPipelineResults([]); setErrorMessage("");
+    setAnglesAnalysis(null); setPipelineProgress(null); setPipelineResults([]);
+    setSmProgress(null); setSmResults([]); setErrorMessage("");
   };
 
   if (!apiReady) return <ApiKeyInput onReady={() => setApiReady(true)} />;
 
-  const isProcessing = status === "analyzing" || status === "generating" || status === "pipeline-running";
+  const isProcessing = status === "analyzing" || status === "generating" || status === "pipeline-running" || status === "social-media-running";
   const canStart = files.length > 0 && !isProcessing;
   const isPipeline = mode === "pipeline";
+  const isSocialMedia = mode === "social-media";
   const copy = MODE_COPY[mode];
 
   const ErrorState = () => (
@@ -345,6 +451,17 @@ function App() {
           onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes}
           onUserNotesChange={setPipelineUserNotes}
+          autoSocialMedia={autoSocialMedia}
+          onAutoSocialMediaChange={setAutoSocialMedia}
+        />
+      ) : isSocialMedia ? (
+        <SocialMediaConfig
+          brandName={smBrandName}
+          onBrandNameChange={handleBrandNameChange}
+          logoBase64={smLogoBase64}
+          onLogoChange={setSmLogoBase64}
+          enabledShots={smEnabledShots}
+          onEnabledShotsChange={setSmEnabledShots}
         />
       ) : (
         <SettingsPanel
@@ -381,12 +498,14 @@ function App() {
                 {files.length} fotoğraf · {copy.title}
               </p>
               <button
-                onClick={isPipeline ? startPipeline : startAnalysis}
-                disabled={!canStart || (isPipeline && pipelineEnabledShots.size === 0)}
+                onClick={isPipeline ? startPipeline : isSocialMedia ? () => startSocialMediaPipeline(false) : startAnalysis}
+                disabled={!canStart || (isPipeline && pipelineEnabledShots.size === 0) || (isSocialMedia && smEnabledShots.size === 0)}
                 className="w-full py-3.5 bg-accent text-black rounded-xl font-display font-700 text-base hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.99] shadow-[0_4px_20px_rgba(232,160,32,0.25)]"
               >
                 {isPipeline
                   ? `Pipeline Başlat · ${pipelineEnabledShots.size} görsel`
+                  : isSocialMedia
+                  ? `SM Paketi Oluştur · ${smEnabledShots.size} görsel`
                   : "Analiz Et ve Üret"}
               </button>
             </div>
@@ -401,7 +520,31 @@ function App() {
           <PipelineProgressView key="progress" progress={pipelineProgress} />
         )}
         {status === "pipeline-done" && pipelineResults.length > 0 && (
-          <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} />
+          <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={startSocialMediaFromPipeline} />
+        )}
+        {status === "social-media-running" && smProgress && (
+          <PipelineProgressView key="sm-progress" progress={{
+            currentGroup: smProgress.currentGroup,
+            currentShot: smProgress.currentShot,
+            completedCount: smProgress.completedCount,
+            totalCount: smProgress.totalCount,
+            results: smProgress.results.map(r => ({
+              id: r.id,
+              label: r.label,
+              imageUrl: r.imageUrl,
+              status: r.status,
+              error: r.error,
+            })),
+          }} />
+        )}
+        {status === "social-media-done" && smResults.length > 0 && (
+          <SocialMediaResults
+            key="sm-results"
+            results={smResults}
+            onReset={reset}
+            onRetryShot={retrySocialMediaShot}
+            onReviseShot={reviseSocialMediaShot}
+          />
         )}
         {status === "done" && generatedImage && (
           <ResultView
@@ -480,6 +623,8 @@ function App() {
                   onPieceCountChange={setPipelinePieceCount}
                   userNotes={pipelineUserNotes}
                   onUserNotesChange={setPipelineUserNotes}
+                  autoSocialMedia={autoSocialMedia}
+                  onAutoSocialMediaChange={setAutoSocialMedia}
                 />
               )}
               {status === "idle" && (
@@ -508,7 +653,7 @@ function App() {
                   <PipelineProgressView key="progress" progress={pipelineProgress} />
                 )}
                 {status === "pipeline-done" && pipelineResults.length > 0 && (
-                  <PipelineResults key="results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} />
+                  <PipelineResults key="results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={startSocialMediaFromPipeline} />
                 )}
                 {status === "error" && <ErrorState key="error" />}
                 {status === "idle" && (
@@ -524,8 +669,85 @@ function App() {
           </div>
         )}
 
+        {/* ═══ SOCIAL MEDIA ═══ */}
+        {isSocialMedia && (
+          <div className="grid grid-cols-12 gap-5">
+            <div className="col-span-4 space-y-3">
+              <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
+
+              {(status === "idle" || status === "social-media-done") && (
+                <SocialMediaConfig
+                  brandName={smBrandName}
+                  onBrandNameChange={handleBrandNameChange}
+                  logoBase64={smLogoBase64}
+                  onLogoChange={setSmLogoBase64}
+                  enabledShots={smEnabledShots}
+                  onEnabledShotsChange={setSmEnabledShots}
+                />
+              )}
+
+              {status === "idle" && (
+                <button
+                  onClick={() => startSocialMediaPipeline(false)}
+                  disabled={!canStart || smEnabledShots.size === 0}
+                  className="w-full py-3 bg-accent text-black rounded-lg font-semibold text-sm hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed active:scale-[0.99]"
+                >
+                  {files.length === 0
+                    ? "Önce fotoğraf yükleyin"
+                    : `SM Paketi Oluştur  ·  ${smEnabledShots.size} görsel`}
+                </button>
+              )}
+
+              {analysis && <AnalysisCard analysis={analysis} />}
+            </div>
+
+            <div className="col-span-8">
+              <AnimatePresence mode="wait">
+                {status === "analyzing" && (
+                  <div key="analyzing" className="bg-surface rounded-xl border border-border overflow-hidden">
+                    <LoadingState stage="analyzing" />
+                  </div>
+                )}
+                {status === "social-media-running" && smProgress && (
+                  <PipelineProgressView key="sm-progress" progress={{
+                    currentGroup: smProgress.currentGroup,
+                    currentShot: smProgress.currentShot,
+                    completedCount: smProgress.completedCount,
+                    totalCount: smProgress.totalCount,
+                    results: smProgress.results.map(r => ({
+                      id: r.id,
+                      label: r.label,
+                      imageUrl: r.imageUrl,
+                      status: r.status,
+                      error: r.error,
+                    })),
+                  }} />
+                )}
+                {status === "social-media-done" && smResults.length > 0 && (
+                  <SocialMediaResults
+                    key="sm-results"
+                    results={smResults}
+                    onReset={reset}
+                    onRetryShot={retrySocialMediaShot}
+                    onReviseShot={reviseSocialMediaShot}
+                  />
+                )}
+                {status === "error" && <ErrorState key="error" />}
+                {status === "idle" && (
+                  <EmptyState
+                    key="empty"
+                    icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>}
+                    title="Sosyal Medya Paketi"
+                    desc="Fotoğraflarınızı yükleyin, marka bilgilerinizi girin ve SM paketini oluşturun."
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
         {/* SINGLE MODES */}
-        {!isPipeline && (
+        {!isPipeline && !isSocialMedia && (
           <div className="grid grid-cols-12 gap-5">
             <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
