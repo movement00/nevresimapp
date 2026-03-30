@@ -39,7 +39,7 @@ export type SocialMediaCallback = (progress: SocialMediaProgress) => void;
 const BANNER_BASE = (
   generationPrompt: string,
   signatureDetails: string,
-  productName: string,
+  _productName: string,
   brandName: string,
   textInstructions: string,
   aspectRatio: string,

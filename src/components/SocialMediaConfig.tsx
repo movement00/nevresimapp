@@ -15,7 +15,7 @@ interface SocialMediaConfigProps {
 export function SocialMediaConfig({
   brandName,
   onBrandNameChange,
-  logoBase64,
+  logoBase64: _logoBase64,
   onLogoChange,
   enabledShots,
   onEnabledShotsChange,

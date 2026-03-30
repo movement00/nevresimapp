@@ -1,7 +1,7 @@
 // src/components/SocialMediaResults.tsx
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { SocialMediaResult } from "../services/socialMediaService";
+import { SOCIAL_MEDIA_SHOTS, type SocialMediaResult } from "../services/socialMediaService";
 
 interface SocialMediaResultsProps {
   results: SocialMediaResult[];
@@ -119,7 +119,7 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
             <div className="p-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium text-text truncate">{r.label}</span>
-                {r.hasText && (
+                {SOCIAL_MEDIA_SHOTS.find(s => s.id === r.id)?.hasText && (
                   <span className="text-[9px] px-1 py-0.5 rounded bg-accent/10 text-accent font-mono">TXT</span>
                 )}
               </div>
