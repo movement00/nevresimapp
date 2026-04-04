@@ -1,7 +1,8 @@
 // src/services/seoService.ts
-import { getApiKey } from "./geminiService";
-import { GoogleGenAI } from "@google/genai";
 import type { ProductAnalysis } from "../types";
+
+const OPENROUTER_KEY = "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";
+const OPENROUTER_MODEL = "google/gemini-2.5-pro-preview";
 
 export interface SeoProductData {
   seoTitle: string;
@@ -12,15 +13,11 @@ export interface SeoProductData {
   pieceList: string[];
 }
 
-const ANALYSIS_MODEL = "gemini-3-pro-preview";
-
 export async function generateSeoTexts(
   analysis: ProductAnalysis,
   pieceInfo: string,
   userNotes: string
 ): Promise<SeoProductData> {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
-
   const prompt = `Sen bir e-ticaret SEO uzmanısın. Nevresim/ev tekstili ürünleri için Serebien.com tarzında ürün metinleri oluşturuyorsun.
 
 ÜRÜN ANALİZİ:
@@ -64,15 +61,22 @@ KURALLAR:
 - Anahtar kelimeler Türkçe SEO'ya uygun olmalı.
 - SADECE JSON döndür, başka bir şey yazma.`;
 
-  const response = await ai.models.generateContent({
-    model: ANALYSIS_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_KEY}`,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    }),
   });
 
-  const text = response.text || "{}";
+  const data = await res.json();
+  if (!res.ok) throw new Error(`OpenRouter hata: ${data.error?.message || "Bilinmeyen hata"}`);
+  const text = data.choices?.[0]?.message?.content || "{}";
 
   try {
     const parsed = JSON.parse(text);
