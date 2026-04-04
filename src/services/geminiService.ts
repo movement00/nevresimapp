@@ -15,8 +15,8 @@ const getAiClient = () => {
 };
 
 // Analiz (text-only) için model
-const ANALYSIS_MODEL = "gemini-3.1-pro-preview";
-// Görsel üretim için model
+const ANALYSIS_MODEL = "gemini-3-pro-preview";
+// Görsel üretim için model — Nano Banana 2
 const IMAGE_GEN_MODEL = "gemini-3.1-flash-image-preview";
 
 const getInlineData = (base64String: string) => {
@@ -113,9 +113,8 @@ Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED I
           suggestedTitle: { type: Type.STRING },
           signatureDetails: { type: Type.STRING, description: "Complete product detail map: piece inventory, exact colors per piece, embroidery motif+position+color (or 'no embroidery'), edge treatment type+color, fabric surface character." },
           generationPrompt: { type: Type.STRING, description: "Full generation prompt that explicitly states all product details (pieces, colors, embroidery position, edge treatment) then describes a new high-end bedroom scene." },
-          pieceInfo: { type: Type.STRING, description: "Detected piece list in Turkish, e.g. '1 nevresim, 1 çarşaf, 2 uyku yastığı kılıfı, 2 dekoratif nakışlı yastık kılıfı'. Count exactly what you see — could be a nevresim set, pike set, or any bedding combination. Do NOT assume a fixed set — detect from images." },
         },
-        required: ["productCategory", "marketingDescription", "generationPrompt", "suggestedTitle", "signatureDetails", "pieceInfo"]
+        required: ["productCategory", "marketingDescription", "generationPrompt", "suggestedTitle", "signatureDetails"]
       }
     }
   });

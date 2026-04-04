@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis, AngleOption } from "./types";
-import { ANGLE_OPTIONS } from "./constants";
+import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
 import { setApiKey } from "./services/geminiService";
 import * as api from "./services/geminiService";
 import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
@@ -86,6 +86,7 @@ function App() {
     new Set(PIPELINE_SHOTS.map(s => s.id))
   );
   const [pipelineUserNotes, setPipelineUserNotes] = useState("");
+  const [pipelinePieceCount, setPipelinePieceCount] = useState(6);
   const [pipelineProgress, setPipelineProgress] = useState<PipelineProgress | null>(null);
   const [pipelineResults, setPipelineResults] = useState<PipelineResultType[]>([]);
 
@@ -141,8 +142,12 @@ function App() {
       let currentAnalysis = analysis;
       if (!currentAnalysis) {
         setStatus("analyzing");
-        const ctx = pipelineUserNotes || undefined;
-        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx);
+        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+        const ctx = [
+          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
+          pipelineUserNotes || "",
+        ].filter(Boolean).join("\n");
+        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx || undefined);
         setAnalysis(currentAnalysis);
         setStatus("social-media-running");
       }
@@ -177,15 +182,20 @@ function App() {
       if (!currentAnalysis && files.length > 0) {
         if (standalone) setStatus("analyzing");
         const b64List = files.map(f => f.base64);
-        const ctx = pipelineUserNotes || undefined;
-        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx);
+        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+        const ctx = [
+          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
+          pipelineUserNotes || "",
+        ].filter(Boolean).join("\n");
+        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx || undefined);
         setAnalysis(currentAnalysis);
         if (standalone) setStatus("done");
       }
 
       if (!currentAnalysis) return;
 
-      const pieceInfo = currentAnalysis.pieceInfo || "";
+      const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+      const pieceInfo = piecePreset?.pieces ?? "";
       const allNotes = [pipelineUserNotes, seoProductInfo].filter(Boolean).join("\n");
       const result = await generateSeoTexts(currentAnalysis, pieceInfo, allNotes);
       setSeoData(result);
@@ -256,10 +266,14 @@ function App() {
     setStatus("analyzing"); setErrorMessage("");
     const b64List = files.map(f => f.base64);
     try {
-      const ctx = pipelineUserNotes || undefined;
-      const analysisResult = await api.analyzeProductPhotos(b64List, ctx);
+      const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+      const pieceInfo = piecePreset?.pieces ?? "";
+      const ctx = [
+        piecePreset ? `This is a ${piecePreset.count}-piece set: ${pieceInfo}` : "",
+        pipelineUserNotes || "",
+      ].filter(Boolean).join("\n");
+      const analysisResult = await api.analyzeProductPhotos(b64List, ctx || undefined);
       setAnalysis(analysisResult);
-      const pieceInfo = analysisResult.pieceInfo || "";
       setStatus("pipeline-running");
       const results = await runPipeline(
         b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
@@ -284,7 +298,7 @@ function App() {
     try {
       // Hero zaten hazır — pipeline'dan çıkar
       const enabledIds = Array.from(pipelineEnabledShots).filter(id => id !== "hero_editorial");
-      const pieceInfo = analysis.pieceInfo || "";
+      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
       const results = await runPipeline(
         allReferences, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
         enabledIds, pipelineUserNotes, pieceInfo,
@@ -312,7 +326,7 @@ function App() {
 
     try {
       const userCtx = pipelineUserNotes ? `\n\nADDITIONAL USER NOTES: ${pipelineUserNotes}` : "";
-      const pieceInfo = analysis.pieceInfo || "";
+      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
       const prompt = shot.promptBuilder(
         analysis.generationPrompt + userCtx,
         analysis.signatureDetails + userCtx,
@@ -348,8 +362,12 @@ function App() {
     const b64List = files.map(f => f.base64);
     try {
       if (mode === "photography") {
-        const ctx = pipelineUserNotes || undefined;
-        const result = await api.analyzeProductPhotos(b64List, ctx);
+        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+        const ctx = [
+          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
+          pipelineUserNotes || "",
+        ].filter(Boolean).join("\n");
+        const result = await api.analyzeProductPhotos(b64List, ctx || undefined);
         setAnalysis(result); setStatus("generating");
         const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
@@ -494,6 +512,8 @@ function App() {
           onEnabledShotsChange={setPipelineEnabledShots}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
+          pieceCount={pipelinePieceCount}
+          onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes}
           onUserNotesChange={setPipelineUserNotes}
           autoSocialMedia={autoSocialMedia}
@@ -501,6 +521,17 @@ function App() {
         />
       ) : isSeoContent ? (
         <div className="space-y-3">
+          <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+            <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Sayısı</span>
+            <div className="flex flex-wrap gap-2">
+              {PIECE_PRESETS.map((p) => (
+                <button key={p.count} onClick={() => setPipelinePieceCount(p.count)}
+                  className={`px-3 py-2 min-h-[44px] rounded-lg border text-xs font-medium transition-all ${
+                    pipelinePieceCount === p.count ? "bg-accent text-black border-accent" : "bg-bg text-muted border-border hover:border-accent/40"
+                  }`}>{p.label}</button>
+              ))}
+            </div>
+          </div>
           <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
             <span className="text-[10px] font-mono text-accent uppercase tracking-wider">Ürün Bilgileri (İsteğe Bağlı)</span>
             <textarea value={seoProductInfo} onChange={(e) => setSeoProductInfo(e.target.value)} rows={4}
@@ -523,6 +554,7 @@ function App() {
           selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
           selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
           boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
+          pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
         />
       )}
@@ -693,6 +725,8 @@ function App() {
                   onEnabledShotsChange={setPipelineEnabledShots}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
+                  pieceCount={pipelinePieceCount}
+                  onPieceCountChange={setPipelinePieceCount}
                   userNotes={pipelineUserNotes}
                   onUserNotesChange={setPipelineUserNotes}
                   autoSocialMedia={autoSocialMedia}
@@ -863,6 +897,27 @@ function App() {
             <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
 
+              {/* Parça Sayısı */}
+              <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+                <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Sayısı</span>
+                <div className="flex flex-wrap gap-2">
+                  {PIECE_PRESETS.map((p) => (
+                    <button
+                      key={p.count}
+                      onClick={() => setPipelinePieceCount(p.count)}
+                      className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg border text-xs font-medium transition-all ${
+                        pipelinePieceCount === p.count
+                          ? "bg-accent text-black border-accent"
+                          : "bg-bg text-muted border-border hover:border-accent/40"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-subtle">{PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces}</p>
+              </div>
+
               {/* Ürün Ek Bilgileri */}
               <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
                 <span className="text-[10px] font-mono text-accent uppercase tracking-wider">Ürün Bilgileri (İsteğe Bağlı)</span>
@@ -929,6 +984,7 @@ function App() {
                 selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
                 selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
                 boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
+                pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
                 userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
               />
               {status === "idle" && (
