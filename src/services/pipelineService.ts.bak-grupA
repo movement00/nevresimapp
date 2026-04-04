@@ -44,7 +44,9 @@ const DECOR_SETS = [
 ];
 
 let decorIndex = 0;
-function resetDecorIndex(): void { decorIndex = 0; }
+function resetDecorIndex(): void {
+  decorIndex = 0;
+}
 function nextDecorSet(): string {
   const set = DECOR_SETS[decorIndex % DECOR_SETS.length];
   decorIndex++;
@@ -63,6 +65,7 @@ const BASE_INSTRUCTIONS = (prompt: string, ar: string, angleInstructions: string
     CRITICAL INSTRUCTIONS:
     - DO NOT just return the original image. You must generate a completely new scene and composition.
     - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment. If the product is bedding, generate a completely different, realistic, cozy, and high-end bedroom.
+    - HEADBOARD & FURNITURE: IGNORE the headboard, bed frame, and all furniture from the reference photos — those are amateur photos taken in the seller's environment. Design a COMPLETELY NEW headboard and bed frame that matches the room style described in the prompt. The headboard in the reference photo is NOT the product — only the TEXTILE (duvet, pillows, sheets) is the product. Create a headboard that complements the new room's aesthetic.
     - LIFESTYLE DECOR: Enrich the scene with these specific decor elements: ${decor}. Make the space feel inviting and lived-in.
     - STRICTLY NO CGI/RENDER LOOK: The image MUST look like a genuine photograph taken with a DSLR camera. Avoid fantastical backgrounds (e.g., fake forests outside windows). Use believable interior design, natural soft lighting, and realistic textures.
     - COMPOSITION: Optimize the camera angle and product placement specifically for a ${ar} aspect ratio. Ensure the composition is balanced for these dimensions.
@@ -324,8 +327,7 @@ export async function runPipeline(
   enabledShotIds: string[],
   userNotes: string,
   pieceInfo: string,
-  onProgress: PipelineCallback,
-  imageSize: string = "2K"
+  onProgress: PipelineCallback
 ): Promise<PipelineResult[]> {
   resetDecorIndex();
   const shots = PIPELINE_SHOTS.filter((s) => enabledShotIds.includes(s.id));
@@ -391,7 +393,7 @@ export async function runPipeline(
         refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
       }
 
-      const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst, imageSize);
+      const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
       results[idx].imageUrl = imageUrl;
       results[idx].status = "done";
     } catch (err: any) {

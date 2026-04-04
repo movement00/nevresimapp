@@ -23,49 +23,8 @@ const getAiClient = () => {
 
 // Analiz (text-only) için model
 const ANALYSIS_MODEL = "gemini-3-pro-preview";
-// Görsel üretim Fal AI Nano Banana 2 üzerinden
-const FAL_KEY = '729373d1-5cb9-43ae-bac2-f298a5101cb6:b78570140f86fdc36f4915d8614edf4c';
-
-const generateWithFalAI = async (
-  prompt: string,
-  referenceImagesBase64: string[],
-  aspectRatio: string = "1:1",
-): Promise<string> => {
-  const imageUrls = referenceImagesBase64.map((b64) => {
-    if (b64.startsWith('data:')) return b64;
-    return `data:image/jpeg;base64,${b64}`;
-  });
-
-  const res = await fetch('https://fal.run/fal-ai/nano-banana-2/edit', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Key ${FAL_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      image_urls: imageUrls,
-      aspect_ratio: aspectRatio,
-      resolution: '2K',
-      num_images: 1,
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Fal AI hata (${res.status}): ${data.detail || JSON.stringify(data).slice(0, 200)}`);
-
-  const imageUrl = data.images?.[0]?.url;
-  if (!imageUrl) throw new Error('Görsel URL bulunamadı');
-
-  const imgRes = await fetch(imageUrl);
-  const blob = await imgRes.blob();
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
+// Görsel üretim için model — Nano Banana 2
+const IMAGE_GEN_MODEL = "gemini-3.1-flash-image-preview";
 
 const getInlineData = (base64String: string) => {
   const matches = base64String.match(/^data:([^;]*);base64,(.+)$/);
@@ -176,19 +135,53 @@ export const generateImageRaw = async (
   fullPrompt: string,
   referenceImagesBase64: string[],
   aspectRatio: string = "1:1",
-  _textFirst: boolean = false,
-  _imageSize: string = "2K"
+  textFirst: boolean = false
 ): Promise<string> => {
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const ai = getAiClient();
+
+  const imageParts = referenceImagesBase64.map((b64) => ({
+    inlineData: getInlineData(b64)
+  }));
+  const textPart = { text: fullPrompt };
+
+  // textFirst: Model reads the instruction BEFORE seeing reference images.
+  // This prevents the model from anchoring on "generate a full bed photo"
+  // when we actually want a detail/macro/marketing shot.
+  const parts: any[] = textFirst
+    ? [textPart, ...imageParts]
+    : [...imageParts, textPart];
+
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const candidate = response.candidates?.[0];
+  if (!candidate) throw new Error("Yanıt alınamadı.");
+  const imagePart = candidate.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const generateProfessionalImage = async (
   prompt: string,
   referenceImagesBase64: string[],
-  aspectRatio: string = "1:1",
-  _imageSize: string = "2K"
+  aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a completely new, high-end professional product photograph based on the reference images provided.
+  const ai = getAiClient();
+
+  const parts: any[] = referenceImagesBase64.map((b64) => ({
+    inlineData: getInlineData(b64)
+  }));
+
+  parts.push({
+    text: `Generate a completely new, high-end professional product photograph based on the reference images provided.
 
     PROMPT: ${prompt}
 
@@ -203,9 +196,27 @@ export const generateProfessionalImage = async (
     - NO PEOPLE: Do NOT include any humans, persons, figures, or body parts in the image. The scene must be completely empty of people.
     - NO EXTRA PRODUCTS: Do NOT add any textile products that are not in the reference images. No extra runners, throws, blankets, decorative pillows, cushions, or any additional bedding items beyond what is shown in the references. The bed must only contain the exact product set from the reference images.
     - DUVET BACK SIDE: If the back/reverse side of the duvet is NOT visible in the reference photos, it is the SAME fabric and color as the front. Do NOT invent a different back side color or material.
-    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.`;
+    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const candidate = response.candidates?.[0];
+  if (!candidate) throw new Error("Yanıt alınamadı.");
+
+  const imagePart = candidate.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const analyzeInfographic = async (
@@ -249,10 +260,12 @@ export const generateInfographicImage = async (
   prompt: string,
   referenceImagesBase64: string[],
   textOverlays: string[],
-  aspectRatio: string = "1:1",
-  _imageSize: string = "2K"
+  aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a completely new, highly realistic image. ${prompt}
+  const ai = getAiClient();
+  const parts: any[] = referenceImagesBase64.map((b64) => ({ inlineData: getInlineData(b64) }));
+  parts.push({
+    text: `Generate a completely new, highly realistic image. ${prompt}
 
     Incorporate these text badges in a stylish, modern way: ${JSON.stringify(textOverlays)}.
 
@@ -261,9 +274,23 @@ export const generateInfographicImage = async (
     - INFOGRAPHIC STYLE (CRITICAL): The product MUST be perfectly ironed, flawlessly neat, and symmetrically arranged. STRICTLY NO messy or wrinkled fabric.
     - BACKGROUND: Use a clean, minimalist, and brightly lit environment (like a modern, uncluttered studio or a very tidy, bright bedroom) so the text badges will be easily readable. Avoid heavy decor that distracts from the text.
     - COMPOSITION: Optimize perfectly for a ${aspectRatio} aspect ratio.
-    - PRODUCT ACCURACY: The product must exactly match the reference images (color, material, precise sewing details).`;
+    - PRODUCT ACCURACY: The product must exactly match the reference images (color, material, precise sewing details).`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const analyzeBoxContent = async (
@@ -298,13 +325,29 @@ export const generateBoxContentImage = async (
   prompt: string,
   referenceImagesBase64: string[],
   itemsList: string[],
-  aspectRatio: string = "1:1",
-  _imageSize: string = "2K"
+  aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a new knolling layout image. ${prompt}
-Items: ${itemsList.join(", ")}. DO NOT return original. Product must match references exactly. Optimize for ${aspectRatio}.`;
+  const ai = getAiClient();
+  const parts: any[] = referenceImagesBase64.map((b64) => ({ inlineData: getInlineData(b64) }));
+  parts.push({
+    text: `Generate a new knolling layout image. ${prompt}
+Items: ${itemsList.join(", ")}. DO NOT return original. Product must match references exactly. Optimize for ${aspectRatio}.`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const analyzeProductAngles = async (
@@ -347,10 +390,12 @@ export const generateProductAngleImage = async (
   basePrompt: string,
   referenceImagesBase64: string[],
   angleConfig: { id: string; label: string; prompt: string },
-  aspectRatio: string = "1:1",
-  _imageSize: string = "2K"
+  aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a completely new image. ${basePrompt} \n\n
+  const ai = getAiClient();
+  const parts: any[] = referenceImagesBase64.map((b64) => ({ inlineData: getInlineData(b64) }));
+  parts.push({
+    text: `Generate a completely new image. ${basePrompt} \n\n
     CAMERA ANGLE: ${angleConfig.prompt}
 
     CRITICAL INSTRUCTIONS:
@@ -359,25 +404,54 @@ export const generateProductAngleImage = async (
     - NEW ARCHITECTURE & REALISM: Design a completely new, AUTHENTIC background and furniture. STRICTLY NO CGI/3D render look. It must look like a genuine, cozy, high-end photograph. Avoid fake/fantastical backgrounds. Use believable interior design.
     - COMPOSITION: Optimize the placement and framing perfectly for a ${aspectRatio} aspect ratio.
     - PRODUCT ACCURACY: Ensure the product itself resembles the reference images perfectly, paying attention to exact textile details, sewing, and decorative elements.
-    - High quality, authentic studio photography.`;
+    - High quality, authentic studio photography.`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel üretilemedi.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const reviseGeneratedImage = async (
   currentImageBase64: string,
   instruction: string,
   aspectRatio: string = "1:1",
-  referenceImageBase64?: string,
-  _imageSize: string = "2K"
+  referenceImageBase64?: string
 ): Promise<string> => {
-  const refs = [currentImageBase64];
-  if (referenceImageBase64) refs.push(referenceImageBase64);
+  const ai = getAiClient();
+  const parts: any[] = [{ inlineData: getInlineData(currentImageBase64) }];
+  if (referenceImageBase64) parts.push({ inlineData: getInlineData(referenceImageBase64) });
 
-  const fullPrompt = `Edit the image according to this instruction: ${instruction}.
-    Maintain the overall style and quality.`;
+  parts.push({
+    text: `Edit the image according to this instruction: ${instruction}.
+    Maintain the overall style and quality.`
+  });
 
-  return generateWithFalAI(fullPrompt, refs, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Revizyon başarısız.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {

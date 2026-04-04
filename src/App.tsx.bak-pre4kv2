@@ -71,7 +71,6 @@ function App() {
   const [status, setStatus] = useState<ProcessStep>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [aspectRatio, setAspectRatio] = useState("1:1");
-  const [imageSize, setImageSize] = useState("2K");
   const [analysis, setAnalysis] = useState<ProductAnalysis | null>(null);
   const [infographicAnalysis, setInfographicAnalysis] = useState<InfographicAnalysis | null>(null);
   const [boxContentAnalysis, setBoxContentAnalysis] = useState<BoxContentAnalysis | null>(null);
@@ -288,8 +287,7 @@ function App() {
       const results = await runPipeline(
         b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
         Array.from(pipelineEnabledShots), pipelineUserNotes, pieceInfo,
-        (progress) => setPipelineProgress({ ...progress }),
-        imageSize
+        (progress) => setPipelineProgress({ ...progress })
       );
       setPipelineResults(results);
       setStatus("pipeline-done");
@@ -314,8 +312,7 @@ function App() {
       const results = await runPipeline(
         allReferences, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
         enabledIds, pipelineUserNotes, pieceInfo,
-        (progress) => setPipelineProgress({ ...progress }),
-        imageSize
+        (progress) => setPipelineProgress({ ...progress })
       );
       // Hero'yu sonuçların başına ekle
       const heroResult: PipelineResultType = {
@@ -347,7 +344,7 @@ function App() {
         aspectRatio
       );
       const allRefs = generatedImage ? [...b64List, generatedImage] : b64List;
-      const imageUrl = await api.generateImageRaw(prompt, allRefs, aspectRatio, shot.textFirst, imageSize);
+      const imageUrl = await api.generateImageRaw(prompt, allRefs, aspectRatio, shot.textFirst);
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
@@ -362,7 +359,7 @@ function App() {
     setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const, error: undefined } : r));
 
     try {
-      const revisedUrl = await api.reviseGeneratedImage(currentImageUrl, instruction, aspectRatio, undefined, imageSize);
+      const revisedUrl = await api.reviseGeneratedImage(currentImageUrl, instruction, aspectRatio);
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: revisedUrl, status: "done" as const } : r));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: currentImageUrl, status: "done" as const, error: err.message } : r));
@@ -383,7 +380,7 @@ function App() {
         ].filter(Boolean).join("\n");
         const result = await api.analyzeProductPhotos(b64List, ctx || undefined);
         setAnalysis(result); setStatus("generating");
-        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio, imageSize);
+        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
       } else if (mode === "infographic") {
         const result = await api.analyzeInfographic(b64List);
@@ -391,7 +388,7 @@ function App() {
       } else if (mode === "box-content") {
         const result = await api.analyzeBoxContent(b64List, boxContentText);
         setBoxContentAnalysis(result); setStatus("generating");
-        const img = await api.generateBoxContentImage(result.generationPrompt, b64List, result.itemsList, aspectRatio, imageSize);
+        const img = await api.generateBoxContentImage(result.generationPrompt, b64List, result.itemsList, aspectRatio);
         setGeneratedImage(img); setStatus("done");
       } else if (mode === "angles") {
         const result = await api.analyzeProductAngles(b64List);
@@ -406,7 +403,7 @@ function App() {
     const b64List = files.map(f => f.base64);
     try {
       if (mode === "angles" && anglesAnalysis) {
-        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio, imageSize));
+        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio));
         setStatus("done"); return;
       }
       let prompt = "";
@@ -415,9 +412,9 @@ function App() {
       if (mode === "box-content" && boxContentAnalysis) prompt = boxContentAnalysis.generationPrompt;
       if (changeComposition) prompt += " CRITICAL: Create a DIFFERENT camera angle and composition while keeping the product 100% the same.";
       let img = "";
-      if (mode === "photography") img = await api.generateProfessionalImage(prompt, b64List, aspectRatio, imageSize);
-      else if (mode === "infographic") img = await api.generateInfographicImage(prompt, b64List, Array.from(selectedBadges), aspectRatio, imageSize);
-      else if (mode === "box-content" && boxContentAnalysis) img = await api.generateBoxContentImage(prompt, b64List, boxContentAnalysis.itemsList, aspectRatio, imageSize);
+      if (mode === "photography") img = await api.generateProfessionalImage(prompt, b64List, aspectRatio);
+      else if (mode === "infographic") img = await api.generateInfographicImage(prompt, b64List, Array.from(selectedBadges), aspectRatio);
+      else if (mode === "box-content" && boxContentAnalysis) img = await api.generateBoxContentImage(prompt, b64List, boxContentAnalysis.itemsList, aspectRatio);
       setGeneratedImage(img); setStatus("done");
     } catch (err: any) { handleError(err); }
   };
@@ -427,9 +424,9 @@ function App() {
     setStatus("generating");
     try {
       if (mode === "infographic" && infographicAnalysis) {
-        setGeneratedImage(await api.generateInfographicImage(infographicAnalysis.generationPrompt, b64List, Array.from(selectedBadges), aspectRatio, imageSize));
+        setGeneratedImage(await api.generateInfographicImage(infographicAnalysis.generationPrompt, b64List, Array.from(selectedBadges), aspectRatio));
       } else if (mode === "angles" && anglesAnalysis) {
-        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio, imageSize));
+        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio));
       }
       setStatus("done");
     } catch (err: any) { handleError(err); }
@@ -438,7 +435,7 @@ function App() {
   const handleRevise = async (prompt: string, refFile?: File) => {
     if (!generatedImage) return;
     const refB64 = refFile ? await api.fileToBase64(refFile) : undefined;
-    setGeneratedImage(await api.reviseGeneratedImage(generatedImage, prompt, aspectRatio, refB64, imageSize));
+    setGeneratedImage(await api.reviseGeneratedImage(generatedImage, prompt, aspectRatio, refB64));
   };
 
   const reset = () => {
@@ -529,8 +526,6 @@ function App() {
           onEnabledShotsChange={setPipelineEnabledShots}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
-          imageSize={imageSize}
-          onImageSizeChange={setImageSize}
           pieceCount={pipelinePieceCount}
           onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes}
@@ -574,7 +569,6 @@ function App() {
       ) : (
         <SettingsPanel
           mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
-          imageSize={imageSize} onImageSizeChange={setImageSize}
           selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
           selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
           boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
@@ -749,8 +743,6 @@ function App() {
                   onEnabledShotsChange={setPipelineEnabledShots}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
-                  imageSize={imageSize}
-                  onImageSizeChange={setImageSize}
                   pieceCount={pipelinePieceCount}
                   onPieceCountChange={setPipelinePieceCount}
                   userNotes={pipelineUserNotes}
@@ -1011,7 +1003,6 @@ function App() {
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
               <SettingsPanel
                 mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
-                imageSize={imageSize} onImageSizeChange={setImageSize}
                 selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
                 selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
                 boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ResultViewProps {
@@ -15,36 +15,17 @@ export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartP
   const [revisionText, setRevisionText] = useState("");
   const [isRevising, setIsRevising] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
-  const [revisionFile, setRevisionFile] = useState<File | null>(null);
-  const [revisionPreview, setRevisionPreview] = useState<string | null>(null);
-  const revisionFileRef = useRef<HTMLInputElement>(null);
 
   const handleRevise = async () => {
     if (!revisionText.trim()) return;
     setIsRevising(true);
     try {
-      await onRevise(revisionText, revisionFile || undefined);
+      await onRevise(revisionText);
       setRevisionText("");
-      setRevisionFile(null);
-      setRevisionPreview(null);
       setShowRevision(false);
     } finally {
       setIsRevising(false);
     }
-  };
-
-  const handleRevisionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setRevisionFile(file);
-    setRevisionPreview(URL.createObjectURL(file));
-  };
-
-  const removeRevisionFile = () => {
-    if (revisionPreview) URL.revokeObjectURL(revisionPreview);
-    setRevisionFile(null);
-    setRevisionPreview(null);
-    if (revisionFileRef.current) revisionFileRef.current.value = "";
   };
 
   const handleDownload = () => {
@@ -193,33 +174,6 @@ export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartP
                   rows={3}
                   className="w-full px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle resize-none focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
                 />
-
-                {/* Reference image upload */}
-                <div className="flex items-center gap-2">
-                  <input ref={revisionFileRef} type="file" accept="image/*" onChange={handleRevisionFileChange} className="hidden" />
-                  {revisionPreview ? (
-                    <div className="flex items-center gap-2 p-2 bg-bg border border-border rounded-lg">
-                      <img src={revisionPreview} alt="Referans" className="w-10 h-10 object-cover rounded" />
-                      <span className="text-[10px] text-muted">Referans görsel eklendi</span>
-                      <button onClick={removeRevisionFile} className="text-subtle hover:text-error transition-colors">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => revisionFileRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-bg border border-dashed border-border rounded-lg text-[10px] text-subtle hover:border-accent/40 hover:text-muted transition-colors"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                      </svg>
-                      Referans Görsel Ekle (isteğe bağlı)
-                    </button>
-                  )}
-                </div>
-
                 <button
                   onClick={handleRevise}
                   disabled={isRevising || !revisionText.trim()}

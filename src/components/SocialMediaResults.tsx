@@ -1,5 +1,5 @@
 // src/components/SocialMediaResults.tsx
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SOCIAL_MEDIA_SHOTS, type SocialMediaResult } from "../services/socialMediaService";
 
@@ -10,56 +10,86 @@ interface SocialMediaResultsProps {
   onReviseShot: (shotId: string, instruction: string) => void;
 }
 
-export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot }: SocialMediaResultsProps) {
+export const SocialMediaResults = memo(function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot }: SocialMediaResultsProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [zoomedUrl, setZoomedUrl] = useState<string | null>(null);
+  const [zoomedLabel, setZoomedLabel] = useState<string>("");
   const [reviseId, setReviseId] = useState<string | null>(null);
   const [reviseText, setReviseText] = useState("");
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
 
   const successCount = results.filter(r => r.status === "done" && r.imageUrl).length;
   const errorCount = results.filter(r => r.status === "error").length;
 
-  const toggleSelect = (id: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedIds(next);
-  };
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
-  const downloadImage = (url: string, name: string) => {
+  const showDownloadFeedback = useCallback((id: string) => {
+    setDownloadedIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setTimeout(() => {
+      setDownloadedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 2000);
+  }, []);
+
+  const downloadImage = useCallback((url: string, name: string, id: string) => {
     const a = document.createElement("a");
     a.href = url;
     a.download = `proshop-sm-${name}.png`;
     a.click();
-  };
+    showDownloadFeedback(id);
+  }, [showDownloadFeedback]);
 
-  const downloadAll = () => {
+  const downloadAll = useCallback(() => {
     const targets = selectedIds.size > 0
       ? results.filter(r => selectedIds.has(r.id) && r.imageUrl)
       : results.filter(r => r.imageUrl);
-    targets.forEach(r => downloadImage(r.imageUrl!, r.id));
-  };
+    targets.forEach(r => downloadImage(r.imageUrl!, r.id, r.id));
+  }, [selectedIds, results, downloadImage]);
 
-  const handleRevise = (id: string) => {
+  const handleRevise = useCallback((id: string) => {
     if (!reviseText.trim()) return;
     onReviseShot(id, reviseText);
     setReviseId(null);
     setReviseText("");
-  };
+  }, [reviseText, onReviseShot]);
+
+  const openZoom = useCallback((url: string, label: string) => {
+    setZoomedUrl(url);
+    setZoomedLabel(label);
+  }, []);
+
+  const closeZoom = useCallback(() => {
+    setZoomedUrl(null);
+    setZoomedLabel("");
+  }, []);
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="font-display text-lg font-700 text-text">Sosyal Medya Paketi</h3>
           <p className="text-xs text-subtle mt-0.5">
-            {successCount} görsel hazır{errorCount > 0 ? ` · ${errorCount} hata` : ""}
+            {successCount} gorsel hazir{errorCount > 0 ? ` · ${errorCount} hata` : ""}
           </p>
         </div>
         <div className="flex gap-2">
           <button onClick={downloadAll} className="px-3 py-1.5 bg-accent text-black rounded-lg text-xs font-semibold hover:bg-accent-hover transition-colors">
-            {selectedIds.size > 0 ? `Seçilenleri İndir (${selectedIds.size})` : "Tümünü İndir"}
+            {selectedIds.size > 0 ? `Secilenleri Indir (${selectedIds.size})` : "Tumunu Indir"}
           </button>
           <button onClick={onReset} className="px-3 py-1.5 bg-surface-2 border border-border text-muted rounded-lg text-xs font-medium hover:text-text transition-colors">
             Yeni Set
@@ -67,8 +97,8 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {results.map((r) => (
           <motion.div
             key={r.id}
@@ -80,10 +110,15 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
             <div
               className="relative cursor-pointer"
               style={{ aspectRatio: r.aspectRatio === "9:16" ? "9/16" : r.aspectRatio === "1:1" ? "1/1" : "3/4" }}
-              onClick={() => r.imageUrl && setZoomedUrl(r.imageUrl)}
+              onClick={() => r.imageUrl && openZoom(r.imageUrl, r.label)}
             >
               {r.imageUrl ? (
-                <img src={r.imageUrl} alt={r.label} className="w-full h-full object-cover" />
+                <img
+                  src={r.imageUrl}
+                  alt={r.label}
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
               ) : r.status === "generating" ? (
                 <div className="w-full h-full shimmer flex items-center justify-center">
                   <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -128,10 +163,14 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
               {r.status === "done" && r.imageUrl && (
                 <div className="flex gap-1.5">
                   <button
-                    onClick={() => downloadImage(r.imageUrl!, r.id)}
-                    className="flex-1 py-1 text-[10px] bg-surface-2 border border-border rounded text-muted hover:text-text transition-colors"
+                    onClick={() => downloadImage(r.imageUrl!, r.id, r.id)}
+                    className={`flex-1 py-1 text-[10px] rounded transition-colors ${
+                      downloadedIds.has(r.id)
+                        ? "bg-green-500/20 border border-green-500/40 text-green-400 font-semibold"
+                        : "bg-surface-2 border border-border text-muted hover:text-text"
+                    }`}
                   >
-                    İndir
+                    {downloadedIds.has(r.id) ? "Indirildi \u2713" : "Indir"}
                   </button>
                   <button
                     onClick={() => onRetryShot(r.id)}
@@ -165,7 +204,7 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
                         type="text"
                         value={reviseText}
                         onChange={(e) => setReviseText(e.target.value)}
-                        placeholder="Değişiklik talimatı..."
+                        placeholder="Degisiklik talimati..."
                         className="flex-1 px-2 py-1.5 bg-bg border border-border rounded text-xs text-text placeholder:text-subtle outline-none focus:border-accent/60"
                         onKeyDown={(e) => e.key === "Enter" && handleRevise(r.id)}
                       />
@@ -173,7 +212,7 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
                         onClick={() => handleRevise(r.id)}
                         className="px-2 py-1.5 bg-accent text-black rounded text-xs font-semibold"
                       >
-                        Gönder
+                        Gonder
                       </button>
                     </div>
                   </motion.div>
@@ -184,27 +223,40 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
         ))}
       </div>
 
-      {/* Zoom Modal */}
+      {/* Zoom Modal - Full screen on mobile, tap to close */}
       <AnimatePresence>
         {zoomedUrl && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setZoomedUrl(null)}
-            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 cursor-zoom-out"
+            onClick={closeZoom}
+            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-0 sm:p-4 cursor-zoom-out"
           >
+            {/* Close button for mobile */}
+            <button
+              onClick={closeZoom}
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-colors sm:hidden"
+              aria-label="Kapat"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
             <motion.img
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
               src={zoomedUrl}
-              alt="Zoom"
-              className="max-w-full max-h-full object-contain rounded-lg"
+              alt={zoomedLabel || "Buyutulmus gorsel"}
+              loading="lazy"
+              className="w-full h-full object-contain sm:max-w-full sm:max-h-full sm:w-auto sm:h-auto sm:rounded-lg"
             />
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
   );
-}
+});

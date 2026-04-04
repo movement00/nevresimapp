@@ -2,17 +2,10 @@ import { motion } from "framer-motion";
 import type { AppMode, AngleOption } from "../types";
 import { ASPECT_RATIOS, ANGLE_OPTIONS, INFOGRAPHIC_OPTIONS, PIECE_PRESETS } from "../constants";
 
-const IMAGE_SIZES = [
-  { label: "2K", value: "2K", desc: "Standart" },
-  { label: "4K", value: "4K", desc: "Katalog" },
-];
-
 interface SettingsPanelProps {
   mode: AppMode;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
-  imageSize: string;
-  onImageSizeChange: (size: string) => void;
   selectedAngle: AngleOption;
   onAngleChange: (angle: AngleOption) => void;
   selectedBadges: Set<string>;
@@ -27,7 +20,6 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({
   mode, aspectRatio, onAspectRatioChange,
-  imageSize, onImageSizeChange,
   selectedAngle, onAngleChange,
   selectedBadges, onBadgeToggle,
   boxContentText, onBoxContentTextChange,
@@ -80,26 +72,6 @@ export function SettingsPanel({
               }`}
             >
               {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Resolution */}
-      <div className="bg-surface rounded-xl border border-border p-4">
-        <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-2.5">Çözünürlük</p>
-        <div className="flex gap-1.5">
-          {IMAGE_SIZES.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => onImageSizeChange(s.value)}
-              className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded-md text-xs font-medium font-mono transition-all ${
-                imageSize === s.value
-                  ? "bg-accent text-black"
-                  : "bg-surface-2 text-muted hover:text-text border border-border"
-              }`}
-            >
-              {s.label} <span className="text-[9px] opacity-70">{s.desc}</span>
             </button>
           ))}
         </div>

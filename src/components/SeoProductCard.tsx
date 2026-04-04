@@ -1,5 +1,5 @@
 // src/components/SeoProductCard.tsx
-import { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import type { SeoProductData } from "../services/seoService";
 
@@ -10,21 +10,29 @@ interface SeoProductCardProps {
   isGenerating?: boolean;
 }
 
-export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoProductCardProps) {
+export const SeoProductCard = React.memo(function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoProductCardProps) {
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const updateField = <K extends keyof SeoProductData>(key: K, value: SeoProductData[K]) => {
     onChange({ ...data, [key]: value });
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = useCallback((text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
-  };
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  }, []);
 
-  const copyAll = () => {
+  const copyAll = useCallback(() => {
     const all = `${data.seoTitle}\n\n${data.metaDescription}\n\n${data.shortDescription}\n\n${data.longDescription.replace(/<[^>]*>/g, '')}\n\nAnahtar Kelimeler: ${data.keywords.join(", ")}\n\nParça Listesi:\n${data.pieceList.join("\n")}`;
     navigator.clipboard.writeText(all);
-  };
+    setCopiedField("all");
+    setTimeout(() => setCopiedField(null), 2000);
+  }, [data]);
+
+  const titleOverLimit = data.seoTitle.length > 120;
+  const metaOverLimit = data.metaDescription.length > 155;
 
   if (isGenerating) {
     return (
@@ -75,7 +83,7 @@ export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoP
             onClick={copyAll}
             className="px-3 py-1.5 bg-surface-2 border border-border text-muted rounded-lg text-xs font-medium hover:text-text transition-colors"
           >
-            Tümünü Kopyala
+            {copiedField === "all" ? "Kopyalandı!" : "Tümünü Kopyala"}
           </button>
         </div>
       </div>
@@ -87,39 +95,51 @@ export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoP
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-accent uppercase tracking-wider">SEO Ürün Başlığı</span>
-              <button onClick={() => copyToClipboard(data.seoTitle)} className="text-[10px] text-subtle hover:text-accent transition-colors">Kopyala</button>
+              <button onClick={() => copyToClipboard(data.seoTitle, "seoTitle")} className="text-[10px] text-subtle hover:text-accent transition-colors">
+                {copiedField === "seoTitle" ? "Kopyalandı!" : "Kopyala"}
+              </button>
             </div>
-            <p className="text-sm font-semibold text-text leading-relaxed">{data.seoTitle}</p>
-            <p className="text-[10px] text-subtle font-mono">{data.seoTitle.length}/120 karakter</p>
+            <p className="text-sm md:text-base font-semibold text-text leading-relaxed">{data.seoTitle}</p>
+            <p className={`text-[10px] font-mono ${titleOverLimit ? "text-red-400" : "text-emerald-400"}`}>
+              {data.seoTitle.length}/120 karakter
+            </p>
           </div>
 
           {/* Meta Description */}
           <div className="space-y-1 p-3 bg-bg rounded-lg border border-border-subtle">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-success uppercase tracking-wider">Meta Description</span>
-              <button onClick={() => copyToClipboard(data.metaDescription)} className="text-[10px] text-subtle hover:text-accent transition-colors">Kopyala</button>
+              <button onClick={() => copyToClipboard(data.metaDescription, "metaDesc")} className="text-[10px] text-subtle hover:text-accent transition-colors">
+                {copiedField === "metaDesc" ? "Kopyalandı!" : "Kopyala"}
+              </button>
             </div>
-            <p className="text-xs text-muted leading-relaxed">{data.metaDescription}</p>
-            <p className="text-[10px] text-subtle font-mono">{data.metaDescription.length}/155 karakter</p>
+            <p className="text-xs md:text-sm text-muted leading-relaxed">{data.metaDescription}</p>
+            <p className={`text-[10px] font-mono ${metaOverLimit ? "text-red-400" : "text-emerald-400"}`}>
+              {data.metaDescription.length}/155 karakter
+            </p>
           </div>
 
           {/* Short Description */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Kısa Açıklama</span>
-              <button onClick={() => copyToClipboard(data.shortDescription)} className="text-[10px] text-subtle hover:text-accent transition-colors">Kopyala</button>
+              <button onClick={() => copyToClipboard(data.shortDescription, "shortDesc")} className="text-[10px] text-subtle hover:text-accent transition-colors">
+                {copiedField === "shortDesc" ? "Kopyalandı!" : "Kopyala"}
+              </button>
             </div>
-            <p className="text-xs text-muted leading-relaxed">{data.shortDescription}</p>
+            <p className="text-sm md:text-base text-muted leading-relaxed">{data.shortDescription}</p>
           </div>
 
           {/* Long Description */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Detaylı Ürün Açıklaması</span>
-              <button onClick={() => copyToClipboard(data.longDescription.replace(/<[^>]*>/g, ''))} className="text-[10px] text-subtle hover:text-accent transition-colors">Kopyala</button>
+              <button onClick={() => copyToClipboard(data.longDescription.replace(/<[^>]*>/g, ''), "longDesc")} className="text-[10px] text-subtle hover:text-accent transition-colors">
+                {copiedField === "longDesc" ? "Kopyalandı!" : "Kopyala"}
+              </button>
             </div>
             <div
-              className="text-xs text-muted leading-relaxed prose prose-sm max-w-none [&_strong]:text-text [&_li]:text-muted"
+              className="text-xs md:text-sm text-muted leading-relaxed prose prose-sm max-w-none [&_strong]:text-text [&_li]:text-muted"
               dangerouslySetInnerHTML={{ __html: data.longDescription }}
             />
           </div>
@@ -141,7 +161,7 @@ export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoP
             <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Listesi</span>
             <ul className="space-y-1">
               {data.pieceList.map((piece, i) => (
-                <li key={i} className="text-xs text-muted flex items-center gap-2">
+                <li key={i} className="text-xs md:text-sm text-muted flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
                   {piece}
                 </li>
@@ -160,7 +180,9 @@ export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoP
               onChange={(e) => updateField("seoTitle", e.target.value)}
               className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-sm text-text focus:border-accent/60 focus:ring-1 focus:ring-accent/20 outline-none transition-colors"
             />
-            <p className="text-[10px] text-subtle font-mono">{data.seoTitle.length}/120 karakter</p>
+            <p className={`text-[10px] font-mono ${titleOverLimit ? "text-red-400" : "text-emerald-400"}`}>
+              {data.seoTitle.length}/120 karakter
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -171,7 +193,9 @@ export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoP
               rows={2}
               className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-xs text-text focus:border-accent/60 focus:ring-1 focus:ring-accent/20 outline-none resize-none transition-colors"
             />
-            <p className="text-[10px] text-subtle font-mono">{data.metaDescription.length}/155 karakter</p>
+            <p className={`text-[10px] font-mono ${metaOverLimit ? "text-red-400" : "text-emerald-400"}`}>
+              {data.metaDescription.length}/155 karakter
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -217,4 +241,4 @@ export function SeoProductCard({ data, onChange, onApprove, isGenerating }: SeoP
       </div>
     </motion.div>
   );
-}
+});

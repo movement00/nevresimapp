@@ -44,7 +44,6 @@ const DECOR_SETS = [
 ];
 
 let decorIndex = 0;
-function resetDecorIndex(): void { decorIndex = 0; }
 function nextDecorSet(): string {
   const set = DECOR_SETS[decorIndex % DECOR_SETS.length];
   decorIndex++;
@@ -327,7 +326,6 @@ export async function runPipeline(
   onProgress: PipelineCallback,
   imageSize: string = "2K"
 ): Promise<PipelineResult[]> {
-  resetDecorIndex();
   const shots = PIPELINE_SHOTS.filter((s) => enabledShotIds.includes(s.id));
 
   const results: PipelineResult[] = shots.map((s) => ({
