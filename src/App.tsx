@@ -371,15 +371,56 @@ function App() {
     const b64List = files.map(f => f.base64);
     try {
       if (mode === "photography") {
+        setPipelineLogs([]);
+        setImageSize(imageQuality);
+        addLog("📷 Analiz başlıyor...");
         const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
+        const isAuto = pipelinePieceCount === 0;
         const ctx = [
-          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
+          !isAuto && piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
           pipelineUserNotes || "",
         ].filter(Boolean).join("\n");
         const result = await api.analyzeProductPhotos(b64List, ctx || undefined);
-        setAnalysis(result); setStatus("generating");
+        setAnalysis(result);
+        if (isAuto && result.pieceInfo) addLog(`🤖 AI parça tespiti: ${result.pieceInfo}`);
+        addLog("✅ Analiz tamamlandı");
+
+        // Detail Control Agent
+        addLog("🔍 Bölge tespiti başlıyor...");
+        try {
+          const detected = await api.detectProductRegions(b64List);
+          const foundRegions = Object.keys(detected).filter(k => (detected as any)[k]);
+          addLog(`📐 ${foundRegions.length} bölge bulundu: ${foundRegions.join(", ") || "yok"}`);
+          const croppedRegions: Record<string, string> = {};
+          const { cropRegion } = await import("./lib/cropRegion");
+          for (const [key, region] of Object.entries(detected)) {
+            if (region && region.imageIndex < b64List.length) {
+              try {
+                addLog(`✂️ ${key} kırpılıyor...`);
+                croppedRegions[key] = await cropRegion(b64List[region.imageIndex], { x: region.x, y: region.y, w: region.w, h: region.h });
+              } catch { /* skip */ }
+            }
+          }
+          if (Object.keys(croppedRegions).length > 0) {
+            addLog("🧵 Detay Kontrol Agenti çalışıyor...");
+            const detailAnalysis = await api.analyzeDetailCrops(croppedRegions);
+            const detailLines: string[] = [];
+            if (detailAnalysis.embroidery) { addLog("✅ Nakış mikro-detayı çıkarıldı"); detailLines.push(`EMBROIDERY MICRO-DETAIL: ${detailAnalysis.embroidery}`); }
+            if (detailAnalysis.edge) { addLog("✅ Kenar dikişi mikro-detayı çıkarıldı"); detailLines.push(`EDGE TREATMENT MICRO-DETAIL: ${detailAnalysis.edge}`); }
+            if (detailAnalysis.pillow) { addLog("✅ Yastık mikro-detayı çıkarıldı"); detailLines.push(`PILLOW MICRO-DETAIL: ${detailAnalysis.pillow}`); }
+            if (detailLines.length > 0) {
+              const detailBlock = `\n\n══ DETAIL CONTROL AGENT FINDINGS ══\n${detailLines.join("\n")}\nYou MUST reproduce these exact details in the generated image.`;
+              result.generationPrompt += detailBlock;
+              addLog(`🎯 ${detailLines.length} mikro-detay prompt'a enjekte edildi`);
+            }
+          }
+        } catch { addLog("⚠️ Detay analizi atlandı"); }
+
+        addLog(`🖼️ Görsel üretiliyor (${imageQuality})...`);
+        setStatus("generating");
         const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
+        addLog("✅ Görsel üretimi tamamlandı");
       } else if (mode === "infographic") {
         const result = await api.analyzeInfographic(b64List);
         setInfographicAnalysis(result); setStatus("selection");
@@ -610,9 +651,19 @@ function App() {
           </motion.div>
         )}
         {(status === "analyzing" || status === "generating") && (
-          <div key="loading" className="bg-surface rounded-xl border border-border overflow-hidden">
-            <LoadingState stage={status === "analyzing" ? "analyzing" : "generating"} />
-          </div>
+          <>
+            <div key="loading" className="bg-surface rounded-xl border border-border overflow-hidden">
+              <LoadingState stage={status === "analyzing" ? "analyzing" : "generating"} />
+            </div>
+            {pipelineLogs.length > 0 && (
+              <div className="mt-3 bg-surface rounded-xl border border-border p-3 max-h-40 overflow-y-auto">
+                <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-1.5">İşlem Logu</p>
+                {pipelineLogs.map((logMsg, i) => (
+                  <p key={i} className="text-[11px] font-mono text-muted leading-relaxed">{logMsg}</p>
+                ))}
+              </div>
+            )}
+          </>
         )}
         {status === "pipeline-running" && pipelineProgress && (
           <>
