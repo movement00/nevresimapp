@@ -388,32 +388,9 @@ function App() {
         if (isAuto && result.pieceInfo) addLog(`🤖 AI parça tespiti: ${result.pieceInfo}`);
         addLog("✅ Analiz tamamlandı");
 
-        // Detail Control Agent
-        addLog("🔍 Bölge tespiti başlıyor...");
-        const cropRefs: string[] = [];
-        try {
-          const detected = await api.detectProductRegions(b64List);
-          const foundRegions = Object.keys(detected).filter(k => (detected as any)[k]);
-          addLog(`📐 ${foundRegions.length} bölge bulundu: ${foundRegions.join(", ") || "yok"}`);
-          const { cropRegion } = await import("./lib/cropRegion");
-          for (const [key, region] of Object.entries(detected)) {
-            if (region && region.imageIndex < b64List.length) {
-              try {
-                addLog(`✂️ ${key} kırpılıyor...`);
-                const cropped = await cropRegion(b64List[region.imageIndex], { x: region.x, y: region.y, w: region.w, h: region.h });
-                cropRefs.push(cropped);
-              } catch { /* skip */ }
-            }
-          }
-          if (cropRefs.length > 0) {
-            addLog(`🎯 ${cropRefs.length} detay crop'u referans görsellere eklendi`);
-          }
-        } catch { addLog("⚠️ Detay tespiti atlandı"); }
-
         addLog(`🖼️ Görsel üretiliyor (${imageQuality})...`);
         setStatus("generating");
-        const allRefs = [...cropRefs, ...b64List];
-        const img = await api.generateProfessionalImage(result.generationPrompt, allRefs, aspectRatio);
+        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
         addLog("✅ Görsel üretimi tamamlandı");
       } else if (mode === "infographic") {
