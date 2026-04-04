@@ -1,5 +1,5 @@
-// Fal AI Nano Banana Pro for SM image generation
-const FAL_KEY = '729373d1-5cb9-43ae-bac2-f298a5101cb6:b78570140f86fdc36f4915d8614edf4c';
+import { GoogleGenAI } from "@google/genai";
+import { getApiKey } from "./geminiService";
 
 export interface SocialMediaShot {
   id: string;
@@ -37,47 +37,65 @@ export interface SocialMediaProgress {
 
 export type SocialMediaCallback = (progress: SocialMediaProgress) => void;
 
-// Direct image generation using Fal AI Nano Banana Pro
+// SM pipeline uses the PRO model for higher quality (same as BannerGenius)
+const SM_IMAGE_MODEL = "gemini-3-pro-image-preview";
+
+const getApiAspectRatio = (ratio: string): string => {
+  if (ratio === "2:3" || ratio === "4:5") return "3:4";
+  return ratio;
+};
+
+// Direct image generation using the PRO model
 async function generateSmImage(
   prompt: string,
   referenceImages: string[],
   aspectRatio: string,
-  _textFirst: boolean
+  textFirst: boolean
 ): Promise<string> {
-  const imageUrls = referenceImages.slice(0, 4).map((b64) => {
-    if (b64.startsWith('data:')) return b64;
-    return `data:image/jpeg;base64,${b64}`;
-  });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-  const res = await fetch('https://fal.run/fal-ai/nano-banana-pro/edit', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Key ${FAL_KEY}`,
-      'Content-Type': 'application/json',
+  const parts: any[] = [];
+
+  if (textFirst) {
+    parts.push({ text: prompt });
+    for (const img of referenceImages.slice(0, 4)) {
+      const matches = img.match(/^data:([^;]*);base64,(.+)$/);
+      if (matches) {
+        parts.push({ inlineData: { mimeType: matches[1] || "image/jpeg", data: matches[2] } });
+      } else {
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: img } });
+      }
+    }
+  } else {
+    for (const img of referenceImages.slice(0, 4)) {
+      const matches = img.match(/^data:([^;]*);base64,(.+)$/);
+      if (matches) {
+        parts.push({ inlineData: { mimeType: matches[1] || "image/jpeg", data: matches[2] } });
+      } else {
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: img } });
+      }
+    }
+    parts.push({ text: prompt });
+  }
+
+  const response = await ai.models.generateContent({
+    model: SM_IMAGE_MODEL,
+    contents: { parts },
+    config: {
+      responseModalities: ["IMAGE", "TEXT"],
+      imageConfig: {
+        aspectRatio: getApiAspectRatio(aspectRatio),
+        imageSize: "1K",
+      },
     },
-    body: JSON.stringify({
-      prompt,
-      image_urls: imageUrls,
-      aspect_ratio: aspectRatio,
-      resolution: '2K',
-      num_images: 1,
-    }),
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Fal AI hata (${res.status}): ${data.detail || JSON.stringify(data).slice(0, 200)}`);
-
-  const imageUrl = data.images?.[0]?.url;
-  if (!imageUrl) throw new Error('Görsel URL bulunamadı');
-
-  const imgRes = await fetch(imageUrl);
-  const blob = await imgRes.blob();
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+  throw new Error("Görsel oluşturulamadı.");
 }
 
 // ===== BANNER PROMPT — Luxury typography system based on Zara Home / RH research =====

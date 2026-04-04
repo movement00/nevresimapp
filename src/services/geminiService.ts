@@ -1,136 +1,42 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import type { ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis } from "../types";
 
-// Kie AI Claude for analysis
-const KIE_KEY = "54084e8a65cbe59c352746152fdf5868";
-const KIE_CLAUDE_MODEL = "claude-sonnet-4-6";
-
-// Legacy — kept for compatibility
 let apiKey = "";
-export const setApiKey = (key: string) => { apiKey = key; };
+
+export const setApiKey = (key: string) => {
+  apiKey = key;
+};
+
 export const getApiKey = () => apiKey;
 
-const getBase64Data = (b64: string): { media_type: string; data: string } => {
-  const matches = b64.match(/^data:([^;]*);base64,(.+)$/);
+const getAiClient = () => {
+  if (!apiKey) throw new Error("API anahtarı ayarlanmadı.");
+  return new GoogleGenAI({ apiKey });
+};
+
+// Analiz (text-only) için model
+const ANALYSIS_MODEL = "gemini-3-pro-preview";
+// Görsel üretim için model — Nano Banana 2
+const IMAGE_GEN_MODEL = "gemini-3.1-flash-image-preview";
+
+const getInlineData = (base64String: string) => {
+  const matches = base64String.match(/^data:([^;]*);base64,(.+)$/);
   if (matches) {
-    return { media_type: matches[1] || "image/jpeg", data: matches[2] };
+    let mimeType = matches[1];
+    if (!mimeType || mimeType === "application/octet-stream" || !mimeType.startsWith("image/")) {
+      mimeType = "image/jpeg";
+    }
+    return { mimeType, data: matches[2] };
   }
-  return { media_type: "image/jpeg", data: b64 };
-};
-
-const analyzeWithClaude = async (
-  prompt: string,
-  base64Images: string[],
-): Promise<string> => {
-  const content: any[] = [];
-  for (const b64 of base64Images) {
-    const { media_type, data } = getBase64Data(b64);
-    content.push({
-      type: "image",
-      source: { type: "base64", media_type, data }
-    });
-  }
-  content.push({ type: "text", text: prompt + "\n\nReturn ONLY valid JSON, no markdown or extra text." });
-
-  const res = await fetch("https://api.kie.ai/claude/v1/messages", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${KIE_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: KIE_CLAUDE_MODEL,
-      messages: [{ role: "user", content }],
-      max_tokens: 4096,
-    }),
-  });
-
-  const data = await res.json();
-  if (data.error) throw new Error(`Claude hata: ${data.error.message || JSON.stringify(data.error).slice(0, 200)}`);
-  const text = data.content?.[0]?.text || "";
-  // Extract JSON from possible markdown code blocks
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return jsonMatch ? jsonMatch[1].trim() : text.trim();
-};
-
-const analyzeTextWithClaude = async (
-  prompt: string,
-  base64Images: string[],
-): Promise<string> => {
-  const content: any[] = [];
-  for (const b64 of base64Images) {
-    const { media_type, data } = getBase64Data(b64);
-    content.push({
-      type: "image",
-      source: { type: "base64", media_type, data }
-    });
-  }
-  content.push({ type: "text", text: prompt });
-
-  const res = await fetch("https://api.kie.ai/claude/v1/messages", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${KIE_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: KIE_CLAUDE_MODEL,
-      messages: [{ role: "user", content }],
-      max_tokens: 4096,
-    }),
-  });
-
-  const data = await res.json();
-  if (data.error) throw new Error(`Claude hata: ${data.error.message || JSON.stringify(data.error).slice(0, 200)}`);
-  return data.content?.[0]?.text || "";
-};
-// Görsel üretim: Fal AI Nano Banana Pro
-const FAL_KEY = '729373d1-5cb9-43ae-bac2-f298a5101cb6:b78570140f86fdc36f4915d8614edf4c';
-
-const generateWithFalAI = async (
-  prompt: string,
-  referenceImagesBase64: string[],
-  aspectRatio: string = "1:1",
-): Promise<string> => {
-  const imageUrls = referenceImagesBase64.map((b64) => {
-    if (b64.startsWith('data:')) return b64;
-    return `data:image/jpeg;base64,${b64}`;
-  });
-
-  const res = await fetch('https://fal.run/fal-ai/nano-banana-pro/edit', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Key ${FAL_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      image_urls: imageUrls,
-      aspect_ratio: aspectRatio,
-      resolution: '2K',
-      num_images: 1,
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Fal AI hata (${res.status}): ${data.detail || JSON.stringify(data).slice(0, 200)}`);
-
-  const imageUrl = data.images?.[0]?.url;
-  if (!imageUrl) throw new Error('Görsel URL bulunamadı');
-
-  const imgRes = await fetch(imageUrl);
-  const blob = await imgRes.blob();
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  return { mimeType: "image/jpeg", data: base64String };
 };
 
 export const analyzeProductPhotos = async (
   base64Images: string[],
   userContext?: string
 ): Promise<ProductAnalysis> => {
+  const ai = getAiClient();
+
   const parts: any[] = [
     {
       text: `You are an expert product photographer and textile specialist. Carefully study ALL provided reference images and extract a precise, exhaustive product profile.
@@ -186,12 +92,34 @@ STEP 7 — GENERATION PROMPT: Write a detailed generation prompt embedding ALL f
   - Fabric surface character
   - The chosen room atmosphere from STEP 6, with specific wall color, furniture material, headboard style, lighting quality, and 2-3 lifestyle props.
 
-Your output must be a JSON object with these exact keys: productCategory, marketingDescription, suggestedTitle, signatureDetails (complete product detail map), generationPrompt (full generation prompt with product details + bedroom scene).${userContext ? `\n\nIMPORTANT USER-PROVIDED INFORMATION (trust this over your own count if it specifies piece count or details):\n${userContext}` : ""}`
+Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED INFORMATION (trust this over your own count if it specifies piece count or details):\n${userContext}` : ""}`
     }
   ];
 
-  const responseText = await analyzeWithClaude(parts[0].text, base64Images);
-  return JSON.parse(responseText) as ProductAnalysis;
+  base64Images.forEach((b64) => {
+    parts.push({ inlineData: getInlineData(b64) });
+  });
+
+  const response = await ai.models.generateContent({
+    model: ANALYSIS_MODEL,
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          productCategory: { type: Type.STRING },
+          marketingDescription: { type: Type.STRING },
+          suggestedTitle: { type: Type.STRING },
+          signatureDetails: { type: Type.STRING, description: "Complete product detail map: piece inventory, exact colors per piece, embroidery motif+position+color (or 'no embroidery'), edge treatment type+color, fabric surface character." },
+          generationPrompt: { type: Type.STRING, description: "Full generation prompt that explicitly states all product details (pieces, colors, embroidery position, edge treatment) then describes a new high-end bedroom scene." },
+        },
+        required: ["productCategory", "marketingDescription", "generationPrompt", "suggestedTitle", "signatureDetails"]
+      }
+    }
+  });
+
+  return JSON.parse(response.text!) as ProductAnalysis;
 };
 
 // Sends a fully-formed prompt directly to the image model — no wrapper added.
@@ -200,9 +128,38 @@ export const generateImageRaw = async (
   fullPrompt: string,
   referenceImagesBase64: string[],
   aspectRatio: string = "1:1",
-  _textFirst: boolean = false
+  textFirst: boolean = false
 ): Promise<string> => {
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const ai = getAiClient();
+
+  const imageParts = referenceImagesBase64.map((b64) => ({
+    inlineData: getInlineData(b64)
+  }));
+  const textPart = { text: fullPrompt };
+
+  // textFirst: Model reads the instruction BEFORE seeing reference images.
+  // This prevents the model from anchoring on "generate a full bed photo"
+  // when we actually want a detail/macro/marketing shot.
+  const parts: any[] = textFirst
+    ? [textPart, ...imageParts]
+    : [...imageParts, textPart];
+
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const candidate = response.candidates?.[0];
+  if (!candidate) throw new Error("Yanıt alınamadı.");
+  const imagePart = candidate.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const generateProfessionalImage = async (
@@ -210,7 +167,14 @@ export const generateProfessionalImage = async (
   referenceImagesBase64: string[],
   aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a completely new, high-end professional product photograph based on the reference images provided.
+  const ai = getAiClient();
+
+  const parts: any[] = referenceImagesBase64.map((b64) => ({
+    inlineData: getInlineData(b64)
+  }));
+
+  parts.push({
+    text: `Generate a completely new, high-end professional product photograph based on the reference images provided.
 
     PROMPT: ${prompt}
 
@@ -225,14 +189,33 @@ export const generateProfessionalImage = async (
     - NO PEOPLE: Do NOT include any humans, persons, figures, or body parts in the image. The scene must be completely empty of people.
     - NO EXTRA PRODUCTS: Do NOT add any textile products that are not in the reference images. No extra runners, throws, blankets, decorative pillows, cushions, or any additional bedding items beyond what is shown in the references. The bed must only contain the exact product set from the reference images.
     - DUVET BACK SIDE: If the back/reverse side of the duvet is NOT visible in the reference photos, it is the SAME fabric and color as the front. Do NOT invent a different back side color or material.
-    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.`;
+    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const candidate = response.candidates?.[0];
+  if (!candidate) throw new Error("Yanıt alınamadı.");
+
+  const imagePart = candidate.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const analyzeInfographic = async (
   base64Images: string[]
 ): Promise<InfographicAnalysis> => {
+  const ai = getAiClient();
   const parts: any[] = [{
     text: `You are an expert product photographer and marketing specialist. Study ALL reference images carefully and extract:
   1. PIECE INVENTORY: Every piece in the set with exact count.
@@ -243,9 +226,27 @@ export const analyzeInfographic = async (
   6. ROOM/BACKGROUND CONTRAST: For infographic use a clean studio background. If product is white/light → use a slightly warm off-white or very light grey background for subtle contrast. If product is dark/bold → pure white background to make colors pop.
   Then create a generation prompt for a CLEAN, PERFECTLY IRONED, MINIMALIST studio setting — product impeccably neat, no wrinkles. The prompt MUST embed all exact product details (piece count, colors, embroidery position, edge treatment) so the AI reproduces the product accurately. Return JSON.`
   }];
-  const prompt = parts[0].text + `\n\nReturn a JSON object with these exact keys: materialType (string), keyFeatures (array of strings), textOverlays (array of strings), generationPrompt (string), marketingHeadline (string).`;
-  const responseText = await analyzeWithClaude(prompt, base64Images);
-  return JSON.parse(responseText) as InfographicAnalysis;
+  base64Images.forEach((b64) => parts.push({ inlineData: getInlineData(b64) }));
+
+  const response = await ai.models.generateContent({
+    model: ANALYSIS_MODEL,
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          materialType: { type: Type.STRING },
+          keyFeatures: { type: Type.ARRAY, items: { type: Type.STRING } },
+          textOverlays: { type: Type.ARRAY, items: { type: Type.STRING } },
+          generationPrompt: { type: Type.STRING },
+          marketingHeadline: { type: Type.STRING }
+        },
+        required: ["materialType", "keyFeatures", "textOverlays", "generationPrompt", "marketingHeadline"]
+      }
+    }
+  });
+  return JSON.parse(response.text!) as InfographicAnalysis;
 };
 
 export const generateInfographicImage = async (
@@ -254,7 +255,10 @@ export const generateInfographicImage = async (
   textOverlays: string[],
   aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a completely new, highly realistic image. ${prompt}
+  const ai = getAiClient();
+  const parts: any[] = referenceImagesBase64.map((b64) => ({ inlineData: getInlineData(b64) }));
+  parts.push({
+    text: `Generate a completely new, highly realistic image. ${prompt}
 
     Incorporate these text badges in a stylish, modern way: ${JSON.stringify(textOverlays)}.
 
@@ -263,18 +267,51 @@ export const generateInfographicImage = async (
     - INFOGRAPHIC STYLE (CRITICAL): The product MUST be perfectly ironed, flawlessly neat, and symmetrically arranged. STRICTLY NO messy or wrinkled fabric.
     - BACKGROUND: Use a clean, minimalist, and brightly lit environment (like a modern, uncluttered studio or a very tidy, bright bedroom) so the text badges will be easily readable. Avoid heavy decor that distracts from the text.
     - COMPOSITION: Optimize perfectly for a ${aspectRatio} aspect ratio.
-    - PRODUCT ACCURACY: The product must exactly match the reference images (color, material, precise sewing details).`;
+    - PRODUCT ACCURACY: The product must exactly match the reference images (color, material, precise sewing details).`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const analyzeBoxContent = async (
   base64Images: string[],
   userContentDescription: string
 ): Promise<BoxContentAnalysis> => {
-  const prompt = `Create a knolling photography setup description. User list: ${userContentDescription}. Return a JSON object with these exact keys: itemsList (array of strings), generationPrompt (string).`;
-  const responseText = await analyzeWithClaude(prompt, base64Images);
-  return JSON.parse(responseText) as BoxContentAnalysis;
+  const ai = getAiClient();
+  const parts: any[] = [{
+    text: `Create a knolling photography setup description. User list: ${userContentDescription}. Return JSON.`
+  }];
+  base64Images.forEach((b64) => parts.push({ inlineData: getInlineData(b64) }));
+
+  const response = await ai.models.generateContent({
+    model: ANALYSIS_MODEL,
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          itemsList: { type: Type.ARRAY, items: { type: Type.STRING } },
+          generationPrompt: { type: Type.STRING }
+        },
+        required: ["itemsList", "generationPrompt"]
+      }
+    }
+  });
+  return JSON.parse(response.text!) as BoxContentAnalysis;
 };
 
 export const generateBoxContentImage = async (
@@ -283,16 +320,35 @@ export const generateBoxContentImage = async (
   itemsList: string[],
   aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a new knolling layout image. ${prompt}
-Items: ${itemsList.join(", ")}. DO NOT return original. Product must match references exactly. Optimize for ${aspectRatio}.`;
+  const ai = getAiClient();
+  const parts: any[] = referenceImagesBase64.map((b64) => ({ inlineData: getInlineData(b64) }));
+  parts.push({
+    text: `Generate a new knolling layout image. ${prompt}
+Items: ${itemsList.join(", ")}. DO NOT return original. Product must match references exactly. Optimize for ${aspectRatio}.`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel oluşturulamadı.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const analyzeProductAngles = async (
   base64Images: string[]
 ): Promise<ProductAnglesAnalysis> => {
-  const prompt = `You are an expert product photographer and textile specialist. Study ALL reference images carefully and extract:
+  const ai = getAiClient();
+  const parts: any[] = [{
+    text: `You are an expert product photographer and textile specialist. Study ALL reference images carefully and extract:
       1. PIECE INVENTORY: Every piece with exact count.
       2. COLOR MAPPING: Base color and accent colors per piece.
       3. EMBROIDERY/PATTERN: Motif shape, exact position on each piece, thread color. State "no embroidery" if none.
@@ -300,9 +356,27 @@ export const analyzeProductAngles = async (
       5. FABRIC CHARACTER: Glossy satin, matte percale, textured, etc.
       6. ROOM ATMOSPHERE: Select a room style that maximizes contrast with the product color. WHITE/LIGHT products → dark walls, deep wood, rich textures (product pops against dark). PASTEL products → warm neutrals, oak, linen. DARK/BOLD products → light neutral room, bright natural light. EARTH TONES → organic materials, warm plaster, rattan.
       Create a base prompt embedding ALL these exact details including the chosen room atmosphere. The prompt must produce authentic, highly realistic DSLR shots — no CGI look.
-      Return a JSON object with these exact keys: productCategory (string), productFeatures (string), basePrompt (string).`;
-  const responseText = await analyzeWithClaude(prompt, base64Images);
-  return JSON.parse(responseText) as ProductAnglesAnalysis;
+      Output JSON.`
+  }];
+  base64Images.forEach((b64) => parts.push({ inlineData: getInlineData(b64) }));
+
+  const response = await ai.models.generateContent({
+    model: ANALYSIS_MODEL,
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          productCategory: { type: Type.STRING },
+          productFeatures: { type: Type.STRING },
+          basePrompt: { type: Type.STRING }
+        },
+        required: ["productCategory", "productFeatures", "basePrompt"]
+      }
+    }
+  });
+  return JSON.parse(response.text!) as ProductAnglesAnalysis;
 };
 
 export const generateProductAngleImage = async (
@@ -311,7 +385,10 @@ export const generateProductAngleImage = async (
   angleConfig: { id: string; label: string; prompt: string },
   aspectRatio: string = "1:1"
 ): Promise<string> => {
-  const fullPrompt = `Generate a completely new image. ${basePrompt} \n\n
+  const ai = getAiClient();
+  const parts: any[] = referenceImagesBase64.map((b64) => ({ inlineData: getInlineData(b64) }));
+  parts.push({
+    text: `Generate a completely new image. ${basePrompt} \n\n
     CAMERA ANGLE: ${angleConfig.prompt}
 
     CRITICAL INSTRUCTIONS:
@@ -320,9 +397,23 @@ export const generateProductAngleImage = async (
     - NEW ARCHITECTURE & REALISM: Design a completely new, AUTHENTIC background and furniture. STRICTLY NO CGI/3D render look. It must look like a genuine, cozy, high-end photograph. Avoid fake/fantastical backgrounds. Use believable interior design.
     - COMPOSITION: Optimize the placement and framing perfectly for a ${aspectRatio} aspect ratio.
     - PRODUCT ACCURACY: Ensure the product itself resembles the reference images perfectly, paying attention to exact textile details, sewing, and decorative elements.
-    - High quality, authentic studio photography.`;
+    - High quality, authentic studio photography.`
+  });
 
-  return generateWithFalAI(fullPrompt, referenceImagesBase64, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Görsel üretilemedi.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const reviseGeneratedImage = async (
@@ -331,13 +422,29 @@ export const reviseGeneratedImage = async (
   aspectRatio: string = "1:1",
   referenceImageBase64?: string
 ): Promise<string> => {
-  const refs = [currentImageBase64];
-  if (referenceImageBase64) refs.push(referenceImageBase64);
+  const ai = getAiClient();
+  const parts: any[] = [{ inlineData: getInlineData(currentImageBase64) }];
+  if (referenceImageBase64) parts.push({ inlineData: getInlineData(referenceImageBase64) });
 
-  const fullPrompt = `Edit the image according to this instruction: ${instruction}.
-    Maintain the overall style and quality.`;
+  parts.push({
+    text: `Edit the image according to this instruction: ${instruction}.
+    Maintain the overall style and quality.`
+  });
 
-  return generateWithFalAI(fullPrompt, refs, aspectRatio);
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: aspectRatio as any,
+        imageSize: "2K",
+      },
+    }
+  });
+
+  const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+  if (!imagePart?.inlineData) throw new Error("Revizyon başarısız.");
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {
@@ -352,72 +459,6 @@ export const fileToBase64 = (file: File): Promise<string> => {
 // ══════════════════════════════════════════════
 // Region detection — find pillow/embroidery/edge areas in reference images
 // ══════════════════════════════════════════════
-
-// ══════════════════════════════════════════════
-// Detail Control Agent — analyze cropped regions for micro-details
-// ══════════════════════════════════════════════
-
-export interface DetailAnalysis {
-  pillow?: string;
-  embroidery?: string;
-  edge?: string;
-}
-
-export const analyzeDetailCrops = async (
-  croppedRegions: Record<string, string>
-): Promise<DetailAnalysis> => {
-  const result: DetailAnalysis = {};
-
-  const regionPrompts: Record<string, string> = {
-    embroidery: `You are examining a CLOSE-UP crop of embroidery/pattern on a bedding product. Describe with EXTREME precision:
-- Exact motif shape (leaf, flower, geometric, abstract — be very specific)
-- Number of motifs visible and their arrangement (scattered, clustered, border, centered)
-- Thread color(s) and any color gradients
-- Stitch type (satin stitch, chain stitch, cross stitch, etc.)
-- Thread thickness (fine/medium/heavy)
-- Direction of stitching
-- Whether the embroidery is raised/3D or flat
-- Symmetry or asymmetry of the design
-- Any gaps, spacing between motifs
-Write a single dense paragraph. Be specific enough that someone could recreate this embroidery exactly.`,
-
-    edge: `You are examining a CLOSE-UP crop of the edge/border treatment on a bedding product. Describe with EXTREME precision:
-- Exact type: piping (raised cord inside), flat decorative strip, bias tape, simple hem, ruffled edge, or other
-- Width of the edge treatment in approximate mm
-- Color(s) of the edge — is it same as fabric or contrasting?
-- Stitching visible? Single line, double line, zigzag?
-- Is it sewn on top of the fabric or folded over the edge?
-- Texture difference from main fabric (shinier, matte, different weave?)
-- Corner treatment (mitered, rounded, overlapped?)
-Write a single dense paragraph. Be specific enough that someone could recreate this edge treatment exactly.`,
-
-    pillow: `You are examining a CLOSE-UP crop of a decorative pillowcase from a bedding set. Describe with EXTREME precision:
-- Overall shape and stuffing level (flat, medium, very plump)
-- Main fabric color and texture
-- Any embroidery: exact motif, position on pillowcase face, thread color
-- Edge/border treatment on the pillowcase
-- Any flange, ruffle, or decorative trim
-- How the opening/closure side looks if visible
-- Fabric sheen (matte, slight sheen, satin glossy)
-Write a single dense paragraph. Be specific enough that someone could recreate this pillowcase exactly.`,
-  };
-
-  for (const [key, cropBase64] of Object.entries(croppedRegions)) {
-    const promptText = regionPrompts[key];
-    if (!promptText) continue;
-
-    try {
-      const text = await analyzeTextWithClaude(promptText, [cropBase64]);
-      if (text) {
-        (result as any)[key] = text;
-      }
-    } catch {
-      // Skip failed analysis — will proceed without this detail
-    }
-  }
-
-  return result;
-};
 
 export interface RegionBox {
   imageIndex: number;
@@ -436,7 +477,11 @@ export interface DetectedRegionsResult {
 export const detectProductRegions = async (
   base64Images: string[]
 ): Promise<DetectedRegionsResult> => {
-  const prompt = `You are analyzing product photographs of a bedding set. For each region below, find the BEST reference image that shows it most clearly and return the bounding box coordinates as percentages (0-100).
+  const ai = getAiClient();
+
+  const parts: any[] = [
+    {
+      text: `You are analyzing product photographs of a bedding set. For each region below, find the BEST reference image that shows it most clearly and return the bounding box coordinates as percentages (0-100).
 
 Find these regions:
 1. PILLOW — The decorative pillowcase that has embroidery or pattern. Find the single best pillow visible across all images. Return the bounding box that tightly frames just that one pillow.
@@ -451,12 +496,59 @@ For each region, return:
 - h: height as percentage of image height (0-100)
 
 If a region is not clearly visible in any image, omit it from the response.
-Images are numbered starting from 0 in the order provided.
-Return a JSON object with optional keys: pillow, embroidery, edge. Each has: imageIndex, x, y, w, h (all numbers).`;
+Images are numbered starting from 0 in the order provided.`
+    }
+  ];
+
+  base64Images.forEach((b64) => {
+    parts.push({ inlineData: getInlineData(b64) });
+  });
 
   try {
-    const responseText = await analyzeWithClaude(prompt, base64Images);
-    return JSON.parse(responseText) as DetectedRegionsResult;
+    const response = await ai.models.generateContent({
+      model: ANALYSIS_MODEL,
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            pillow: {
+              type: Type.OBJECT,
+              properties: {
+                imageIndex: { type: Type.NUMBER },
+                x: { type: Type.NUMBER },
+                y: { type: Type.NUMBER },
+                w: { type: Type.NUMBER },
+                h: { type: Type.NUMBER },
+              },
+            },
+            embroidery: {
+              type: Type.OBJECT,
+              properties: {
+                imageIndex: { type: Type.NUMBER },
+                x: { type: Type.NUMBER },
+                y: { type: Type.NUMBER },
+                w: { type: Type.NUMBER },
+                h: { type: Type.NUMBER },
+              },
+            },
+            edge: {
+              type: Type.OBJECT,
+              properties: {
+                imageIndex: { type: Type.NUMBER },
+                x: { type: Type.NUMBER },
+                y: { type: Type.NUMBER },
+                w: { type: Type.NUMBER },
+                h: { type: Type.NUMBER },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return JSON.parse(response.text!) as DetectedRegionsResult;
   } catch {
     // If region detection fails, return empty — pipeline will use full references
     return {};

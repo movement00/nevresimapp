@@ -1,4 +1,4 @@
-import { generateImageRaw, detectProductRegions, analyzeDetailCrops } from "./geminiService";
+import { generateImageRaw, detectProductRegions } from "./geminiService";
 import { cropRegion } from "../lib/cropRegion";
 
 export interface PipelineShot {
@@ -347,8 +347,8 @@ export async function runPipeline(
   const userContext = userNotes
     ? `\n\nCONTEXT FROM USER (for accuracy only, do NOT render as text): ${userNotes}`
     : "";
-  let fullGenerationPrompt = generationPrompt + userContext;
-  let fullSignatureDetails = signatureDetails + userContext;
+  const fullGenerationPrompt = generationPrompt + userContext;
+  const fullSignatureDetails = signatureDetails + userContext;
 
   // ── Region detection: crop pillow/embroidery/edge from reference photos ──
   // This runs once before the pipeline starts. Cropped regions are prepended
@@ -370,22 +370,6 @@ export async function runPipeline(
         }
       }
     } catch { /* region detection failed — proceed without crops */ }
-  }
-
-  // ── Detail Control Agent: analyze each crop for micro-details ──
-  if (Object.keys(croppedRegions).length > 0) {
-    try {
-      const detailAnalysis = await analyzeDetailCrops(croppedRegions);
-      const detailLines: string[] = [];
-      if (detailAnalysis.embroidery) detailLines.push(`EMBROIDERY MICRO-DETAIL: ${detailAnalysis.embroidery}`);
-      if (detailAnalysis.edge) detailLines.push(`EDGE TREATMENT MICRO-DETAIL: ${detailAnalysis.edge}`);
-      if (detailAnalysis.pillow) detailLines.push(`PILLOW MICRO-DETAIL: ${detailAnalysis.pillow}`);
-      if (detailLines.length > 0) {
-        const detailBlock = `\n\n══ DETAIL CONTROL AGENT FINDINGS ══\n${detailLines.join("\n")}\nYou MUST reproduce these exact details in the generated image.`;
-        fullSignatureDetails += detailBlock;
-        fullGenerationPrompt += detailBlock;
-      }
-    } catch { /* detail analysis failed — proceed with standard details */ }
   }
 
   // Fully sequential — one shot at a time, model gets full attention per shot

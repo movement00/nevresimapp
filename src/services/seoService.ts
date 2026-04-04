@@ -1,8 +1,7 @@
 // src/services/seoService.ts
+import { getApiKey } from "./geminiService";
+import { GoogleGenAI } from "@google/genai";
 import type { ProductAnalysis } from "../types";
-
-const KIE_KEY = "54084e8a65cbe59c352746152fdf5868";
-const KIE_CLAUDE_MODEL = "claude-sonnet-4-6";
 
 export interface SeoProductData {
   seoTitle: string;
@@ -13,11 +12,15 @@ export interface SeoProductData {
   pieceList: string[];
 }
 
+const ANALYSIS_MODEL = "gemini-3-pro-preview";
+
 export async function generateSeoTexts(
   analysis: ProductAnalysis,
   pieceInfo: string,
   userNotes: string
 ): Promise<SeoProductData> {
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
   const prompt = `Sen bir e-ticaret SEO uzmanısın. Nevresim/ev tekstili ürünleri için Serebien.com tarzında ürün metinleri oluşturuyorsun.
 
 ÜRÜN ANALİZİ:
@@ -61,24 +64,15 @@ KURALLAR:
 - Anahtar kelimeler Türkçe SEO'ya uygun olmalı.
 - SADECE JSON döndür, başka bir şey yazma.`;
 
-  const res = await fetch("https://api.kie.ai/claude/v1/messages", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${KIE_KEY}`,
-      "Content-Type": "application/json",
+  const response = await ai.models.generateContent({
+    model: ANALYSIS_MODEL,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
     },
-    body: JSON.stringify({
-      model: KIE_CLAUDE_MODEL,
-      messages: [{ role: "user", content: prompt + "\n\nReturn ONLY valid JSON, no markdown or extra text." }],
-      max_tokens: 4096,
-    }),
   });
 
-  const data = await res.json();
-  if (data.error) throw new Error(`Claude hata: ${data.error.message || "Bilinmeyen hata"}`);
-  const rawText = data.content?.[0]?.text || "{}";
-  const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const text = jsonMatch ? jsonMatch[1].trim() : rawText.trim();
+  const text = response.text || "{}";
 
   try {
     const parsed = JSON.parse(text);
