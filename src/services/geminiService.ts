@@ -380,6 +380,83 @@ export const fileToBase64 = (file: File): Promise<string> => {
 // Region detection — find pillow/embroidery/edge areas in reference images
 // ══════════════════════════════════════════════
 
+// ══════════════════════════════════════════════
+// Detail Control Agent — analyze cropped regions for micro-details
+// ══════════════════════════════════════════════
+
+export interface DetailAnalysis {
+  pillow?: string;
+  embroidery?: string;
+  edge?: string;
+}
+
+export const analyzeDetailCrops = async (
+  croppedRegions: Record<string, string>
+): Promise<DetailAnalysis> => {
+  const ai = getAiClient();
+  const result: DetailAnalysis = {};
+
+  const regionPrompts: Record<string, string> = {
+    embroidery: `You are examining a CLOSE-UP crop of embroidery/pattern on a bedding product. Describe with EXTREME precision:
+- Exact motif shape (leaf, flower, geometric, abstract — be very specific)
+- Number of motifs visible and their arrangement (scattered, clustered, border, centered)
+- Thread color(s) and any color gradients
+- Stitch type (satin stitch, chain stitch, cross stitch, etc.)
+- Thread thickness (fine/medium/heavy)
+- Direction of stitching
+- Whether the embroidery is raised/3D or flat
+- Symmetry or asymmetry of the design
+- Any gaps, spacing between motifs
+Write a single dense paragraph. Be specific enough that someone could recreate this embroidery exactly.`,
+
+    edge: `You are examining a CLOSE-UP crop of the edge/border treatment on a bedding product. Describe with EXTREME precision:
+- Exact type: piping (raised cord inside), flat decorative strip, bias tape, simple hem, ruffled edge, or other
+- Width of the edge treatment in approximate mm
+- Color(s) of the edge — is it same as fabric or contrasting?
+- Stitching visible? Single line, double line, zigzag?
+- Is it sewn on top of the fabric or folded over the edge?
+- Texture difference from main fabric (shinier, matte, different weave?)
+- Corner treatment (mitered, rounded, overlapped?)
+Write a single dense paragraph. Be specific enough that someone could recreate this edge treatment exactly.`,
+
+    pillow: `You are examining a CLOSE-UP crop of a decorative pillowcase from a bedding set. Describe with EXTREME precision:
+- Overall shape and stuffing level (flat, medium, very plump)
+- Main fabric color and texture
+- Any embroidery: exact motif, position on pillowcase face, thread color
+- Edge/border treatment on the pillowcase
+- Any flange, ruffle, or decorative trim
+- How the opening/closure side looks if visible
+- Fabric sheen (matte, slight sheen, satin glossy)
+Write a single dense paragraph. Be specific enough that someone could recreate this pillowcase exactly.`,
+  };
+
+  for (const [key, cropBase64] of Object.entries(croppedRegions)) {
+    const promptText = regionPrompts[key];
+    if (!promptText) continue;
+
+    try {
+      const parts: any[] = [
+        { inlineData: getInlineData(cropBase64) },
+        { text: promptText }
+      ];
+
+      const response = await ai.models.generateContent({
+        model: ANALYSIS_MODEL,
+        contents: { parts },
+      });
+
+      const text = response.text;
+      if (text) {
+        (result as any)[key] = text;
+      }
+    } catch {
+      // Skip failed analysis — will proceed without this detail
+    }
+  }
+
+  return result;
+};
+
 export interface RegionBox {
   imageIndex: number;
   x: number;
