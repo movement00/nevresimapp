@@ -300,18 +300,21 @@ function App() {
   // Hero beğenildikten sonra: hero atlanır, kalan çekimler üretilir
   const startPipelineFromHero = async () => {
     if (!generatedImage || !analysis || files.length === 0) return;
-    setMode("pipeline"); setStatus("pipeline-running"); setErrorMessage("");
+    setMode("pipeline"); setStatus("pipeline-running"); setErrorMessage(""); setPipelineLogs([]);
+    setImageSize(imageQuality);
+    addLog("🚀 Hero'dan tam set üretimine geçiliyor...");
     const b64List = files.map(f => f.base64);
-    // Hero görseli referans olarak ekleniyor — model "ürün böyle görünecek" diye anlıyor
     const allReferences = [...b64List, generatedImage];
     try {
-      // Hero zaten hazır — pipeline'dan çıkar
       const enabledIds = Array.from(pipelineEnabledShots).filter(id => id !== "hero_editorial");
-      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
+      const isAuto = pipelinePieceCount === 0;
+      const pieceInfo = isAuto ? (analysis.pieceInfo || "") : (PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "");
+      addLog(`📋 ${enabledIds.length} shot üretilecek`);
       const results = await runPipeline(
         allReferences, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
         enabledIds, pipelineUserNotes, pieceInfo,
-        (progress) => setPipelineProgress({ ...progress })
+        (progress) => setPipelineProgress({ ...progress }),
+        addLog
       );
       // Hero'yu sonuçların başına ekle
       const heroResult: PipelineResultType = {
