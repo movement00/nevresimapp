@@ -8,6 +8,8 @@ interface PipelineConfigProps {
   onAspectRatioChange: (ratio: string) => void;
   pieceCount: number;
   onPieceCountChange: (count: number) => void;
+  imageQuality: string;
+  onImageQualityChange: (quality: string) => void;
   userNotes: string;
   onUserNotesChange: (notes: string) => void;
   autoSocialMedia: boolean;
@@ -24,6 +26,7 @@ export function PipelineConfig({
   enabledShots, onEnabledShotsChange,
   aspectRatio, onAspectRatioChange,
   pieceCount, onPieceCountChange,
+  imageQuality, onImageQualityChange,
   userNotes, onUserNotesChange,
   autoSocialMedia, onAutoSocialMediaChange,
 }: PipelineConfigProps) {
@@ -139,6 +142,29 @@ export function PipelineConfig({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Image Quality */}
+      <div className="bg-surface rounded-xl border border-border p-4">
+        <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-2.5">Görsel Kalitesi</p>
+        <div className="flex gap-1.5">
+          {["1K", "2K", "4K"].map((q) => (
+            <button
+              key={q}
+              onClick={() => onImageQualityChange(q)}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold font-mono transition-all ${
+                imageQuality === q
+                  ? "bg-accent text-black"
+                  : "bg-surface-2 text-muted hover:text-text border border-border"
+              }`}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+        {imageQuality === "4K" && (
+          <p className="text-[10px] text-amber-400 mt-2">⚠ 4K üretim daha yavaş ve daha pahalıdır</p>
+        )}
       </div>
 
       {/* Notes */}

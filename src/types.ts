@@ -4,6 +4,7 @@ export interface ProductAnalysis {
   generationPrompt: string;
   suggestedTitle: string;
   signatureDetails: string;
+  pieceInfo?: string;
 }
 
 export interface InfographicAnalysis {

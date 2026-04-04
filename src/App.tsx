@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis, AngleOption } from "./types";
 import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
-import { setApiKey } from "./services/geminiService";
+import { setApiKey, setImageSize } from "./services/geminiService";
 import * as api from "./services/geminiService";
 import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
 import type { PipelineProgress, PipelineResult as PipelineResultType } from "./services/pipelineService";
@@ -71,6 +71,8 @@ function App() {
   const [status, setStatus] = useState<ProcessStep>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [imageQuality, setImageQuality] = useState("2K");
+  const [pipelineLogs, setPipelineLogs] = useState<string[]>([]);
 
   const [analysis, setAnalysis] = useState<ProductAnalysis | null>(null);
   const [infographicAnalysis, setInfographicAnalysis] = useState<InfographicAnalysis | null>(null);
@@ -261,24 +263,35 @@ function App() {
     }
   };
 
+  const addLog = (msg: string) => setPipelineLogs(prev => [...prev, `[${new Date().toLocaleTimeString("tr-TR")}] ${msg}`]);
+
   const startPipeline = async () => {
     if (files.length === 0 || pipelineEnabledShots.size === 0) return;
-    setStatus("analyzing"); setErrorMessage("");
+    setStatus("analyzing"); setErrorMessage(""); setPipelineLogs([]);
+    setImageSize(imageQuality);
+    addLog("📷 Analiz başlıyor...");
     const b64List = files.map(f => f.base64);
     try {
       const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
-      const pieceInfo = piecePreset?.pieces ?? "";
+      const isAuto = pipelinePieceCount === 0;
+      const pieceInfo = isAuto ? "" : (piecePreset?.pieces ?? "");
       const ctx = [
-        piecePreset ? `This is a ${piecePreset.count}-piece set: ${pieceInfo}` : "",
+        !isAuto && piecePreset ? `This is a ${piecePreset.count}-piece set: ${pieceInfo}` : "",
         pipelineUserNotes || "",
       ].filter(Boolean).join("\n");
       const analysisResult = await api.analyzeProductPhotos(b64List, ctx || undefined);
       setAnalysis(analysisResult);
+      const finalPieceInfo = isAuto ? (analysisResult.pieceInfo || "") : pieceInfo;
+      if (isAuto && analysisResult.pieceInfo) {
+        addLog(`🤖 AI parça tespiti: ${analysisResult.pieceInfo}`);
+      }
+      addLog(`✅ Analiz tamamlandı — ${imageQuality} kalitede üretim başlıyor`);
       setStatus("pipeline-running");
       const results = await runPipeline(
         b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
-        Array.from(pipelineEnabledShots), pipelineUserNotes, pieceInfo,
-        (progress) => setPipelineProgress({ ...progress })
+        Array.from(pipelineEnabledShots), pipelineUserNotes, finalPieceInfo,
+        (progress) => setPipelineProgress({ ...progress }),
+        addLog
       );
       setPipelineResults(results);
       setStatus("pipeline-done");
@@ -514,6 +527,8 @@ function App() {
           onAspectRatioChange={setAspectRatio}
           pieceCount={pipelinePieceCount}
           onPieceCountChange={setPipelinePieceCount}
+          imageQuality={imageQuality}
+          onImageQualityChange={setImageQuality}
           userNotes={pipelineUserNotes}
           onUserNotesChange={setPipelineUserNotes}
           autoSocialMedia={autoSocialMedia}
@@ -604,7 +619,17 @@ function App() {
           </div>
         )}
         {status === "pipeline-running" && pipelineProgress && (
-          <PipelineProgressView key="progress" progress={pipelineProgress} />
+          <>
+            <PipelineProgressView key="progress" progress={pipelineProgress} />
+            {pipelineLogs.length > 0 && (
+              <div className="mt-3 bg-surface rounded-xl border border-border p-3 max-h-40 overflow-y-auto">
+                <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-1.5">İşlem Logu</p>
+                {pipelineLogs.map((log, i) => (
+                  <p key={i} className="text-[11px] font-mono text-muted leading-relaxed">{log}</p>
+                ))}
+              </div>
+            )}
+          </>
         )}
         {status === "pipeline-done" && pipelineResults.length > 0 && (
           <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />
@@ -727,6 +752,8 @@ function App() {
                   onAspectRatioChange={setAspectRatio}
                   pieceCount={pipelinePieceCount}
                   onPieceCountChange={setPipelinePieceCount}
+                  imageQuality={imageQuality}
+                  onImageQualityChange={setImageQuality}
                   userNotes={pipelineUserNotes}
                   onUserNotesChange={setPipelineUserNotes}
                   autoSocialMedia={autoSocialMedia}
