@@ -470,6 +470,7 @@ export interface DetailAnalysis {
   pillow?: string;
   embroidery?: string;
   edge?: string;
+  pattern?: string;
 }
 
 export const analyzeDetailCrops = async (
@@ -500,6 +501,17 @@ Write a single dense paragraph. Be specific enough that someone could recreate t
 - Texture difference from main fabric (shinier, matte, different weave?)
 - Corner treatment (mitered, rounded, overlapped?)
 Write a single dense paragraph. Be specific enough that someone could recreate this edge treatment exactly.`,
+
+    pattern: `You are examining a CLOSE-UP crop of a FABRIC PATTERN on a bedding product (pike, jacquard, printed, woven). Describe with EXTREME precision:
+- Pattern type: jacquard weave, quilted/pike texture, printed, embossed, or other
+- Exact motif shapes (geometric diamonds, leaves, flowers, abstract, damask, etc.)
+- Pattern repeat size (approximate cm)
+- Pattern arrangement (grid, diagonal, scattered, bordered)
+- Texture depth: is the pattern raised/3D (jacquard/pike) or flat (printed)?
+- Color variations within the pattern (tone-on-tone, contrasting, gradient)
+- Background texture between motifs (smooth, ribbed, waffle, honeycomb)
+- Overall surface feel (matte, slight sheen, glossy)
+Write a single dense paragraph. Be specific enough that someone could recreate this exact fabric pattern.`,
 
     pillow: `You are examining a CLOSE-UP crop of a decorative pillowcase from a bedding set. Describe with EXTREME precision:
 - Overall shape and stuffing level (flat, medium, very plump)
@@ -555,6 +567,7 @@ export interface DetectedRegionsResult {
   pillow?: RegionBox;
   embroidery?: RegionBox;
   edge?: RegionBox;
+  pattern?: RegionBox;
 }
 
 export const detectProductRegions = async (
@@ -569,7 +582,8 @@ export const detectProductRegions = async (
 Find these regions:
 1. PILLOW — The decorative pillowcase that has embroidery or pattern. Find the single best pillow visible across all images. Return the bounding box that tightly frames just that one pillow.
 2. EMBROIDERY — The embroidery, pattern, or textile detail area. Find the image where the embroidery/pattern is most visible and closest. Return a tight bounding box around JUST the embroidery motif area.
-3. EDGE — The edge treatment (piping, bias tape, decorative strip, border). Find the image where the edge/border detail is most visible. Return a tight bounding box around just the edge area.
+3. EDGE — The edge treatment (piping, bias tape, decorative strip, border, fringe/tassel). Find the image where the edge/border detail is most visible. Return a tight bounding box around just the edge area.
+4. PATTERN — The fabric surface pattern (jacquard weave, pike/quilted texture, printed pattern, damask). Find the image where the fabric pattern/texture is most visible and closest. Return a tight bounding box around an area that clearly shows the repeating pattern. This is DIFFERENT from embroidery — this is the woven/printed pattern IN the fabric itself.
 
 For each region, return:
 - imageIndex: which image (0-based index) shows this best
@@ -617,6 +631,16 @@ Images are numbered starting from 0 in the order provided.`
               },
             },
             edge: {
+              type: Type.OBJECT,
+              properties: {
+                imageIndex: { type: Type.NUMBER },
+                x: { type: Type.NUMBER },
+                y: { type: Type.NUMBER },
+                w: { type: Type.NUMBER },
+                h: { type: Type.NUMBER },
+              },
+            },
+            pattern: {
               type: Type.OBJECT,
               properties: {
                 imageIndex: { type: Type.NUMBER },

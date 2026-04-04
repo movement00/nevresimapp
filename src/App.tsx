@@ -408,6 +408,7 @@ function App() {
             if (detailAnalysis.embroidery) { addLog("✅ Nakış mikro-detayı çıkarıldı"); detailLines.push(`EMBROIDERY MICRO-DETAIL: ${detailAnalysis.embroidery}`); }
             if (detailAnalysis.edge) { addLog("✅ Kenar dikişi mikro-detayı çıkarıldı"); detailLines.push(`EDGE TREATMENT MICRO-DETAIL: ${detailAnalysis.edge}`); }
             if (detailAnalysis.pillow) { addLog("✅ Yastık mikro-detayı çıkarıldı"); detailLines.push(`PILLOW MICRO-DETAIL: ${detailAnalysis.pillow}`); }
+            if (detailAnalysis.pattern) { addLog("✅ Kumaş deseni mikro-detayı çıkarıldı"); detailLines.push(`FABRIC PATTERN MICRO-DETAIL: ${detailAnalysis.pattern}`); }
             if (detailLines.length > 0) {
               const detailBlock = `\n\n══ DETAIL CONTROL AGENT FINDINGS ══\n${detailLines.join("\n")}\nYou MUST reproduce these exact details in the generated image.`;
               result.generationPrompt += detailBlock;

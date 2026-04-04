@@ -397,6 +397,10 @@ export async function runPipeline(
         log("✅ Yastık mikro-detayı çıkarıldı");
         detailLines.push(`PILLOW MICRO-DETAIL: ${detailAnalysis.pillow}`);
       }
+      if (detailAnalysis.pattern) {
+        log("✅ Kumaş deseni mikro-detayı çıkarıldı");
+        detailLines.push(`FABRIC PATTERN MICRO-DETAIL: ${detailAnalysis.pattern}`);
+      }
       if (detailLines.length > 0) {
         const detailBlock = `\n\n══ DETAIL CONTROL AGENT FINDINGS ══\n${detailLines.join("\n")}\nYou MUST reproduce these exact details in the generated image.`;
         fullSignatureDetails += detailBlock;
