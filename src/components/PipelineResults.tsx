@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PipelineResult } from "../services/pipelineService";
+import { generateCarouselVideo } from "../services/videoService";
 
 interface PipelineResultsProps {
   results: PipelineResult[];
@@ -15,6 +16,24 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [reviseId, setReviseId] = useState<string | null>(null);
   const [reviseText, setReviseText] = useState("");
+  const [carouselGenerating, setCarouselGenerating] = useState(false);
+  const [carouselPct, setCarouselPct] = useState(0);
+
+  const handleCarouselVideo = async () => {
+    const images = successResults.map(r => r.imageUrl!);
+    if (images.length === 0) return;
+    setCarouselGenerating(true); setCarouselPct(0);
+    try {
+      const url = await generateCarouselVideo(images, 2.5, 0.5, (pct) => setCarouselPct(pct));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `proshop-carousel-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setCarouselGenerating(false);
+    }
+  };
 
   const successResults = results.filter(r => r.status === "done" && r.imageUrl);
   const errorCount = results.filter(r => r.status === "error").length;
@@ -115,6 +134,21 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
             className="w-full py-3 bg-accent text-black rounded-lg font-display font-700 text-sm hover:bg-accent-hover transition-colors active:scale-[0.99] shadow-[0_4px_20px_rgba(232,160,32,0.25)]"
           >
             Sosyal Medya Paketi Oluştur →
+          </button>
+        )}
+
+        {successResults.length > 1 && (
+          <button
+            onClick={handleCarouselVideo}
+            disabled={carouselGenerating}
+            className="w-full py-3 bg-surface border border-border text-muted hover:text-text rounded-lg font-display font-700 text-sm transition-colors active:scale-[0.99] disabled:opacity-40"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              {carouselGenerating ? `Carousel Video Oluşturuluyor ${carouselPct}%` : "Carousel Video Oluştur"}
+            </span>
           </button>
         )}
 
