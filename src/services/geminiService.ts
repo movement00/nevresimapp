@@ -1,67 +1,87 @@
 import type { ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis } from "../types";
 
-// OpenRouter API for analysis
-const OPENROUTER_KEY = "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";
-const OPENROUTER_MODEL = "google/gemini-2.5-pro-preview";
+// Kie AI Claude for analysis
+const KIE_KEY = "54084e8a65cbe59c352746152fdf5868";
+const KIE_CLAUDE_MODEL = "claude-sonnet-4-6";
 
-// Legacy — kept for compatibility but not used for analysis anymore
+// Legacy — kept for compatibility
 let apiKey = "";
 export const setApiKey = (key: string) => { apiKey = key; };
 export const getApiKey = () => apiKey;
 
-const analyzeWithOpenRouter = async (
-  systemPrompt: string,
-  base64Images: string[],
-): Promise<string> => {
-  const content: any[] = [{ type: "text", text: systemPrompt }];
-  for (const b64 of base64Images) {
-    const url = b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`;
-    content.push({ type: "image_url", image_url: { url } });
+const getBase64Data = (b64: string): { media_type: string; data: string } => {
+  const matches = b64.match(/^data:([^;]*);base64,(.+)$/);
+  if (matches) {
+    return { media_type: matches[1] || "image/jpeg", data: matches[2] };
   }
-
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENROUTER_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [{ role: "user", content }],
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(`OpenRouter hata (${res.status}): ${data.error?.message || JSON.stringify(data).slice(0, 200)}`);
-  return data.choices?.[0]?.message?.content || "";
+  return { media_type: "image/jpeg", data: b64 };
 };
 
-const analyzeTextWithOpenRouter = async (
-  systemPrompt: string,
+const analyzeWithClaude = async (
+  prompt: string,
   base64Images: string[],
 ): Promise<string> => {
-  const content: any[] = [{ type: "text", text: systemPrompt }];
+  const content: any[] = [];
   for (const b64 of base64Images) {
-    const url = b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`;
-    content.push({ type: "image_url", image_url: { url } });
+    const { media_type, data } = getBase64Data(b64);
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type, data }
+    });
   }
+  content.push({ type: "text", text: prompt + "\n\nReturn ONLY valid JSON, no markdown or extra text." });
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetch("https://api.kie.ai/claude/v1/messages", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${OPENROUTER_KEY}`,
+      "Authorization": `Bearer ${KIE_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
+      model: KIE_CLAUDE_MODEL,
       messages: [{ role: "user", content }],
+      max_tokens: 4096,
     }),
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(`OpenRouter hata (${res.status}): ${data.error?.message || JSON.stringify(data).slice(0, 200)}`);
-  return data.choices?.[0]?.message?.content || "";
+  if (data.error) throw new Error(`Claude hata: ${data.error.message || JSON.stringify(data.error).slice(0, 200)}`);
+  const text = data.content?.[0]?.text || "";
+  // Extract JSON from possible markdown code blocks
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return jsonMatch ? jsonMatch[1].trim() : text.trim();
+};
+
+const analyzeTextWithClaude = async (
+  prompt: string,
+  base64Images: string[],
+): Promise<string> => {
+  const content: any[] = [];
+  for (const b64 of base64Images) {
+    const { media_type, data } = getBase64Data(b64);
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type, data }
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
+  const res = await fetch("https://api.kie.ai/claude/v1/messages", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${KIE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: KIE_CLAUDE_MODEL,
+      messages: [{ role: "user", content }],
+      max_tokens: 4096,
+    }),
+  });
+
+  const data = await res.json();
+  if (data.error) throw new Error(`Claude hata: ${data.error.message || JSON.stringify(data.error).slice(0, 200)}`);
+  return data.content?.[0]?.text || "";
 };
 // Görsel üretim: Fal AI Nano Banana Pro
 const FAL_KEY = '729373d1-5cb9-43ae-bac2-f298a5101cb6:b78570140f86fdc36f4915d8614edf4c';
@@ -170,7 +190,7 @@ Your output must be a JSON object with these exact keys: productCategory, market
     }
   ];
 
-  const responseText = await analyzeWithOpenRouter(parts[0].text, base64Images);
+  const responseText = await analyzeWithClaude(parts[0].text, base64Images);
   return JSON.parse(responseText) as ProductAnalysis;
 };
 
@@ -224,7 +244,7 @@ export const analyzeInfographic = async (
   Then create a generation prompt for a CLEAN, PERFECTLY IRONED, MINIMALIST studio setting — product impeccably neat, no wrinkles. The prompt MUST embed all exact product details (piece count, colors, embroidery position, edge treatment) so the AI reproduces the product accurately. Return JSON.`
   }];
   const prompt = parts[0].text + `\n\nReturn a JSON object with these exact keys: materialType (string), keyFeatures (array of strings), textOverlays (array of strings), generationPrompt (string), marketingHeadline (string).`;
-  const responseText = await analyzeWithOpenRouter(prompt, base64Images);
+  const responseText = await analyzeWithClaude(prompt, base64Images);
   return JSON.parse(responseText) as InfographicAnalysis;
 };
 
@@ -253,7 +273,7 @@ export const analyzeBoxContent = async (
   userContentDescription: string
 ): Promise<BoxContentAnalysis> => {
   const prompt = `Create a knolling photography setup description. User list: ${userContentDescription}. Return a JSON object with these exact keys: itemsList (array of strings), generationPrompt (string).`;
-  const responseText = await analyzeWithOpenRouter(prompt, base64Images);
+  const responseText = await analyzeWithClaude(prompt, base64Images);
   return JSON.parse(responseText) as BoxContentAnalysis;
 };
 
@@ -281,7 +301,7 @@ export const analyzeProductAngles = async (
       6. ROOM ATMOSPHERE: Select a room style that maximizes contrast with the product color. WHITE/LIGHT products → dark walls, deep wood, rich textures (product pops against dark). PASTEL products → warm neutrals, oak, linen. DARK/BOLD products → light neutral room, bright natural light. EARTH TONES → organic materials, warm plaster, rattan.
       Create a base prompt embedding ALL these exact details including the chosen room atmosphere. The prompt must produce authentic, highly realistic DSLR shots — no CGI look.
       Return a JSON object with these exact keys: productCategory (string), productFeatures (string), basePrompt (string).`;
-  const responseText = await analyzeWithOpenRouter(prompt, base64Images);
+  const responseText = await analyzeWithClaude(prompt, base64Images);
   return JSON.parse(responseText) as ProductAnglesAnalysis;
 };
 
@@ -387,7 +407,7 @@ Write a single dense paragraph. Be specific enough that someone could recreate t
     if (!promptText) continue;
 
     try {
-      const text = await analyzeTextWithOpenRouter(promptText, [cropBase64]);
+      const text = await analyzeTextWithClaude(promptText, [cropBase64]);
       if (text) {
         (result as any)[key] = text;
       }
@@ -435,7 +455,7 @@ Images are numbered starting from 0 in the order provided.
 Return a JSON object with optional keys: pillow, embroidery, edge. Each has: imageIndex, x, y, w, h (all numbers).`;
 
   try {
-    const responseText = await analyzeWithOpenRouter(prompt, base64Images);
+    const responseText = await analyzeWithClaude(prompt, base64Images);
     return JSON.parse(responseText) as DetectedRegionsResult;
   } catch {
     // If region detection fails, return empty — pipeline will use full references
