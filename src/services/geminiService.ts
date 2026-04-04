@@ -107,18 +107,6 @@ const generateWithFalAI = async (
   });
 };
 
-const getInlineData = (base64String: string) => {
-  const matches = base64String.match(/^data:([^;]*);base64,(.+)$/);
-  if (matches) {
-    let mimeType = matches[1];
-    if (!mimeType || mimeType === "application/octet-stream" || !mimeType.startsWith("image/")) {
-      mimeType = "image/jpeg";
-    }
-    return { mimeType, data: matches[2] };
-  }
-  return { mimeType: "image/jpeg", data: base64String };
-};
-
 export const analyzeProductPhotos = async (
   base64Images: string[],
   userContext?: string
