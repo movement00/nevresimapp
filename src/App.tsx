@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis, AngleOption } from "./types";
 import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
-import { setApiKey, setImageSize } from "./services/geminiService";
+import { setImageSize } from "./services/geminiService";
 import * as api from "./services/geminiService";
 import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
 import type { PipelineProgress, PipelineResult as PipelineResultType } from "./services/pipelineService";
@@ -60,11 +60,7 @@ const MODE_COPY: Record<AppMode, { title: string; desc: string }> = {
 };
 
 function App() {
-  const [apiReady, setApiReady] = useState(() => {
-    const saved = localStorage.getItem("gemini_api_key");
-    if (saved) { setApiKey(saved); }
-    return true;
-  });
+  const [apiReady, setApiReady] = useState(true);
 
   const [mode, setMode] = useState<AppMode>("pipeline");
   const [files, setFiles] = useState<UploadedFile[]>([]);
