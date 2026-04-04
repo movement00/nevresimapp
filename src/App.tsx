@@ -62,8 +62,8 @@ const MODE_COPY: Record<AppMode, { title: string; desc: string }> = {
 function App() {
   const [apiReady, setApiReady] = useState(() => {
     const saved = localStorage.getItem("gemini_api_key");
-    if (saved) { setApiKey(saved); return true; }
-    return false;
+    if (saved) { setApiKey(saved); }
+    return true;
   });
 
   const [mode, setMode] = useState<AppMode>("pipeline");
