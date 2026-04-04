@@ -27,7 +27,7 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
       const url = await generateCarouselVideo(images, 2.5, 0.5, (pct) => setCarouselPct(pct));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `proshop-carousel-${Date.now()}.webm`;
+      a.download = `proshop-carousel-${Date.now()}.mp4`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {

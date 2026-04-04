@@ -25,7 +25,7 @@ export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartP
       const url = await generateKenBurnsVideo(imageUrl, 5, (pct) => setVideoPct(pct));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `proshop-reveal-${Date.now()}.webm`;
+      a.download = `proshop-reveal-${Date.now()}.mp4`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
