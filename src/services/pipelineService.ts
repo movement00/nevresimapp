@@ -394,9 +394,12 @@ export async function runPipeline(
     try {
       const prompt = shot.promptBuilder(fullGenerationPrompt, fullSignatureDetails, pieceInfo, aspectRatio);
 
-      // Build references: all crops + all original references
-      const allCrops = Object.values(croppedRegions);
-      const refs = [...allCrops, ...referenceImagesBase64];
+      // Build references: focused crop (if applicable) + all original references
+      let refs = referenceImagesBase64;
+      if (shot.focusRegion && croppedRegions[shot.focusRegion]) {
+        refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
+        log(`   → ${shot.focusRegion} crop'u referansa eklendi`);
+      }
 
       const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
       results[idx].imageUrl = imageUrl;
