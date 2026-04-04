@@ -1,13 +1,11 @@
 import { PIPELINE_SHOTS } from "../services/pipelineService";
-import { ASPECT_RATIOS, PIECE_PRESETS } from "../constants";
+import { ASPECT_RATIOS } from "../constants";
 
 interface PipelineConfigProps {
   enabledShots: Set<string>;
   onEnabledShotsChange: (shots: Set<string>) => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
-  pieceCount: number;
-  onPieceCountChange: (count: number) => void;
   userNotes: string;
   onUserNotesChange: (notes: string) => void;
   autoSocialMedia: boolean;
@@ -23,7 +21,6 @@ const GROUP_META: Record<string, { label: string; color: string }> = {
 export function PipelineConfig({
   enabledShots, onEnabledShotsChange,
   aspectRatio, onAspectRatioChange,
-  pieceCount, onPieceCountChange,
   userNotes, onUserNotesChange,
   autoSocialMedia, onAutoSocialMediaChange,
 }: PipelineConfigProps) {
@@ -40,35 +37,8 @@ export function PipelineConfig({
     );
   };
 
-  const selectedPreset = PIECE_PRESETS.find(p => p.count === pieceCount);
-
   return (
     <div className="space-y-3">
-      {/* Piece count */}
-      <div className="bg-surface rounded-xl border border-border p-4">
-        <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-2.5">Parça Sayısı</p>
-        <div className="flex gap-1.5">
-          {PIECE_PRESETS.map((preset) => (
-            <button
-              key={preset.count}
-              onClick={() => onPieceCountChange(preset.count)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold font-mono transition-all ${
-                pieceCount === preset.count
-                  ? "bg-accent text-black"
-                  : "bg-surface-2 text-muted hover:text-text border border-border"
-              }`}
-            >
-              {preset.count}
-            </button>
-          ))}
-        </div>
-        {selectedPreset && (
-          <p className="text-[10px] text-subtle mt-2 leading-relaxed">
-            {selectedPreset.pieces}
-          </p>
-        )}
-      </div>
-
       {/* Shot checklist */}
       <div className="bg-surface rounded-xl border border-border p-4">
         <div className="flex items-center justify-between mb-3">

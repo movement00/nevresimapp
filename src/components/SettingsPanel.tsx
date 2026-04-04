@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { AppMode, AngleOption } from "../types";
-import { ASPECT_RATIOS, ANGLE_OPTIONS, INFOGRAPHIC_OPTIONS, PIECE_PRESETS } from "../constants";
+import { ASPECT_RATIOS, ANGLE_OPTIONS, INFOGRAPHIC_OPTIONS } from "../constants";
 
 interface SettingsPanelProps {
   mode: AppMode;
@@ -12,8 +12,6 @@ interface SettingsPanelProps {
   onBadgeToggle: (badge: string) => void;
   boxContentText: string;
   onBoxContentTextChange: (text: string) => void;
-  pieceCount: number;
-  onPieceCountChange: (count: number) => void;
   userNotes: string;
   onUserNotesChange: (notes: string) => void;
 }
@@ -23,39 +21,10 @@ export function SettingsPanel({
   selectedAngle, onAngleChange,
   selectedBadges, onBadgeToggle,
   boxContentText, onBoxContentTextChange,
-  pieceCount, onPieceCountChange,
   userNotes, onUserNotesChange,
 }: SettingsPanelProps) {
-  const selectedPreset = PIECE_PRESETS.find(p => p.count === pieceCount);
-
   return (
     <div className="space-y-3">
-      {/* Piece count — photography and box-content modes */}
-      {(mode === "photography" || mode === "box-content") && (
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-2.5">Parça Sayısı</p>
-          <div className="flex gap-1.5">
-            {PIECE_PRESETS.map((preset) => (
-              <button
-                key={preset.count}
-                onClick={() => onPieceCountChange(preset.count)}
-                className={`flex-1 py-2 min-h-[44px] md:min-h-0 rounded-lg text-xs font-semibold font-mono transition-all ${
-                  pieceCount === preset.count
-                    ? "bg-accent text-black"
-                    : "bg-surface-2 text-muted hover:text-text border border-border"
-                }`}
-              >
-                {preset.count}
-              </button>
-            ))}
-          </div>
-          {selectedPreset && (
-            <p className="text-[10px] text-subtle mt-2 leading-relaxed">
-              {selectedPreset.pieces}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Aspect Ratio */}
       <div className="bg-surface rounded-xl border border-border p-4">

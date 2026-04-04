@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis, AngleOption } from "./types";
-import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
+import { ANGLE_OPTIONS } from "./constants";
 import { setApiKey } from "./services/geminiService";
 import * as api from "./services/geminiService";
 import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
@@ -86,7 +86,6 @@ function App() {
     new Set(PIPELINE_SHOTS.map(s => s.id))
   );
   const [pipelineUserNotes, setPipelineUserNotes] = useState("");
-  const [pipelinePieceCount, setPipelinePieceCount] = useState(6);
   const [pipelineProgress, setPipelineProgress] = useState<PipelineProgress | null>(null);
   const [pipelineResults, setPipelineResults] = useState<PipelineResultType[]>([]);
 
@@ -495,8 +494,6 @@ function App() {
           onEnabledShotsChange={setPipelineEnabledShots}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
-          pieceCount={pipelinePieceCount}
-          onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes}
           onUserNotesChange={setPipelineUserNotes}
           autoSocialMedia={autoSocialMedia}
@@ -504,17 +501,6 @@ function App() {
         />
       ) : isSeoContent ? (
         <div className="space-y-3">
-          <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
-            <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Sayısı</span>
-            <div className="flex flex-wrap gap-2">
-              {PIECE_PRESETS.map((p) => (
-                <button key={p.count} onClick={() => setPipelinePieceCount(p.count)}
-                  className={`px-3 py-2 min-h-[44px] rounded-lg border text-xs font-medium transition-all ${
-                    pipelinePieceCount === p.count ? "bg-accent text-black border-accent" : "bg-bg text-muted border-border hover:border-accent/40"
-                  }`}>{p.label}</button>
-              ))}
-            </div>
-          </div>
           <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
             <span className="text-[10px] font-mono text-accent uppercase tracking-wider">Ürün Bilgileri (İsteğe Bağlı)</span>
             <textarea value={seoProductInfo} onChange={(e) => setSeoProductInfo(e.target.value)} rows={4}
@@ -537,7 +523,6 @@ function App() {
           selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
           selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
           boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
-          pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
         />
       )}
@@ -708,8 +693,6 @@ function App() {
                   onEnabledShotsChange={setPipelineEnabledShots}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
-                  pieceCount={pipelinePieceCount}
-                  onPieceCountChange={setPipelinePieceCount}
                   userNotes={pipelineUserNotes}
                   onUserNotesChange={setPipelineUserNotes}
                   autoSocialMedia={autoSocialMedia}
@@ -880,27 +863,6 @@ function App() {
             <div className="col-span-4 space-y-3">
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
 
-              {/* Parça Sayısı */}
-              <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
-                <span className="text-[10px] font-mono text-subtle uppercase tracking-wider">Parça Sayısı</span>
-                <div className="flex flex-wrap gap-2">
-                  {PIECE_PRESETS.map((p) => (
-                    <button
-                      key={p.count}
-                      onClick={() => setPipelinePieceCount(p.count)}
-                      className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg border text-xs font-medium transition-all ${
-                        pipelinePieceCount === p.count
-                          ? "bg-accent text-black border-accent"
-                          : "bg-bg text-muted border-border hover:border-accent/40"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-subtle">{PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces}</p>
-              </div>
-
               {/* Ürün Ek Bilgileri */}
               <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
                 <span className="text-[10px] font-mono text-accent uppercase tracking-wider">Ürün Bilgileri (İsteğe Bağlı)</span>
@@ -967,7 +929,6 @@ function App() {
                 selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
                 selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
                 boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
-                pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
                 userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
               />
               {status === "idle" && (
