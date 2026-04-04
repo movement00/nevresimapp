@@ -142,12 +142,8 @@ function App() {
       let currentAnalysis = analysis;
       if (!currentAnalysis) {
         setStatus("analyzing");
-        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
-        const ctx = [
-          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
-          pipelineUserNotes || "",
-        ].filter(Boolean).join("\n");
-        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx || undefined);
+        const ctx = pipelineUserNotes || undefined;
+        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx);
         setAnalysis(currentAnalysis);
         setStatus("social-media-running");
       }
@@ -182,20 +178,15 @@ function App() {
       if (!currentAnalysis && files.length > 0) {
         if (standalone) setStatus("analyzing");
         const b64List = files.map(f => f.base64);
-        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
-        const ctx = [
-          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
-          pipelineUserNotes || "",
-        ].filter(Boolean).join("\n");
-        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx || undefined);
+        const ctx = pipelineUserNotes || undefined;
+        currentAnalysis = await api.analyzeProductPhotos(b64List, ctx);
         setAnalysis(currentAnalysis);
         if (standalone) setStatus("done");
       }
 
       if (!currentAnalysis) return;
 
-      const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
-      const pieceInfo = piecePreset?.pieces ?? "";
+      const pieceInfo = currentAnalysis.pieceInfo || "";
       const allNotes = [pipelineUserNotes, seoProductInfo].filter(Boolean).join("\n");
       const result = await generateSeoTexts(currentAnalysis, pieceInfo, allNotes);
       setSeoData(result);
@@ -266,14 +257,10 @@ function App() {
     setStatus("analyzing"); setErrorMessage("");
     const b64List = files.map(f => f.base64);
     try {
-      const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
-      const pieceInfo = piecePreset?.pieces ?? "";
-      const ctx = [
-        piecePreset ? `This is a ${piecePreset.count}-piece set: ${pieceInfo}` : "",
-        pipelineUserNotes || "",
-      ].filter(Boolean).join("\n");
-      const analysisResult = await api.analyzeProductPhotos(b64List, ctx || undefined);
+      const ctx = pipelineUserNotes || undefined;
+      const analysisResult = await api.analyzeProductPhotos(b64List, ctx);
       setAnalysis(analysisResult);
+      const pieceInfo = analysisResult.pieceInfo || "";
       setStatus("pipeline-running");
       const results = await runPipeline(
         b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
@@ -298,7 +285,7 @@ function App() {
     try {
       // Hero zaten hazır — pipeline'dan çıkar
       const enabledIds = Array.from(pipelineEnabledShots).filter(id => id !== "hero_editorial");
-      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
+      const pieceInfo = analysis.pieceInfo || "";
       const results = await runPipeline(
         allReferences, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
         enabledIds, pipelineUserNotes, pieceInfo,
@@ -326,7 +313,7 @@ function App() {
 
     try {
       const userCtx = pipelineUserNotes ? `\n\nADDITIONAL USER NOTES: ${pipelineUserNotes}` : "";
-      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
+      const pieceInfo = analysis.pieceInfo || "";
       const prompt = shot.promptBuilder(
         analysis.generationPrompt + userCtx,
         analysis.signatureDetails + userCtx,
@@ -362,12 +349,8 @@ function App() {
     const b64List = files.map(f => f.base64);
     try {
       if (mode === "photography") {
-        const piecePreset = PIECE_PRESETS.find(p => p.count === pipelinePieceCount);
-        const ctx = [
-          piecePreset ? `This is a ${piecePreset.count}-piece set: ${piecePreset.pieces}` : "",
-          pipelineUserNotes || "",
-        ].filter(Boolean).join("\n");
-        const result = await api.analyzeProductPhotos(b64List, ctx || undefined);
+        const ctx = pipelineUserNotes || undefined;
+        const result = await api.analyzeProductPhotos(b64List, ctx);
         setAnalysis(result); setStatus("generating");
         const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
