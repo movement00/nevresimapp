@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { SOCIAL_MEDIA_SHOTS } from "../services/socialMediaService";
-import { PIECE_PRESETS } from "../constants";
 
 interface SocialMediaConfigProps {
   brandName: string;
@@ -11,10 +10,6 @@ interface SocialMediaConfigProps {
   onLogoChange: (base64: string | undefined) => void;
   enabledShots: Set<string>;
   onEnabledShotsChange: (shots: Set<string>) => void;
-  pieceCount: number;
-  onPieceCountChange: (count: number) => void;
-  userNotes: string;
-  onUserNotesChange: (notes: string) => void;
 }
 
 export function SocialMediaConfig({
@@ -24,10 +19,6 @@ export function SocialMediaConfig({
   onLogoChange,
   enabledShots,
   onEnabledShotsChange,
-  pieceCount,
-  onPieceCountChange,
-  userNotes,
-  onUserNotesChange,
 }: SocialMediaConfigProps) {
   const [logoPreview, setLogoPreview] = useState<string>(() => {
     const saved = localStorage.getItem("proshop_logo_preview");
@@ -72,8 +63,9 @@ export function SocialMediaConfig({
   };
 
   const groups = [
-    { key: "A", label: "Banner Görselleri", color: "text-accent" },
-    { key: "B", label: "Carousel Devam", color: "text-success" },
+    { key: "A", label: "Yazılı Banner", color: "text-accent" },
+    { key: "B", label: "Estetik Görsel", color: "text-success" },
+    { key: "C", label: "Carousel Devam", color: "text-blue-400" },
   ];
 
   return (
@@ -117,42 +109,6 @@ export function SocialMediaConfig({
             <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
           </label>
         )}
-      </div>
-
-      {/* Piece Count */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-mono text-subtle uppercase tracking-wider">
-          Parça Sayısı
-        </label>
-        <div className="flex flex-wrap gap-1.5">
-          {PIECE_PRESETS.map((p) => (
-            <button
-              key={p.count}
-              onClick={() => onPieceCountChange(p.count)}
-              className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                pieceCount === p.count
-                  ? "bg-accent text-black border-accent"
-                  : "bg-bg text-muted border-border hover:border-accent/40"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* User Notes */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-mono text-subtle uppercase tracking-wider">
-          Ek Bilgiler (isteğe bağlı)
-        </label>
-        <textarea
-          value={userNotes}
-          onChange={(e) => onUserNotesChange(e.target.value)}
-          rows={3}
-          placeholder="Örn: %100 pamuk saten, ağaç desen nakışlı, ekru/bej renk, fırfırlı..."
-          className="w-full px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle focus:border-accent/60 focus:ring-1 focus:ring-accent/20 outline-none resize-y transition-colors"
-        />
       </div>
 
       {/* Shot Selection */}

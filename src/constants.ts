@@ -52,11 +52,6 @@ export const ANGLE_OPTIONS: AngleOption[] = [
 
 export const PIECE_PRESETS = [
   {
-    count: 4,
-    label: "4 Parça",
-    pieces: "1 pike, 1 çarşaf, 2 nakışlı yastık kılıfı",
-  },
-  {
     count: 6,
     label: "6 Parça",
     pieces: "1 nevresim, 1 çarşaf, 2 uyku yastığı kılıfı, 2 dekoratif nakışlı yastık kılıfı",

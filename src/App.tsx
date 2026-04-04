@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis, AngleOption } from "./types";
 import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
@@ -71,7 +71,7 @@ function App() {
   const [status, setStatus] = useState<ProcessStep>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [aspectRatio, setAspectRatio] = useState("1:1");
-  const [imageSize, setImageSize] = useState("2K");
+
   const [analysis, setAnalysis] = useState<ProductAnalysis | null>(null);
   const [infographicAnalysis, setInfographicAnalysis] = useState<InfographicAnalysis | null>(null);
   const [boxContentAnalysis, setBoxContentAnalysis] = useState<BoxContentAnalysis | null>(null);
@@ -103,13 +103,6 @@ function App() {
 
   const [wizardStep, setWizardStep] = useState<WizardStep>("upload");
 
-  const [toast, setToast] = useState<string | null>(null);
-
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
-
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
     setAnalysis(null); setInfographicAnalysis(null); setBoxContentAnalysis(null);
@@ -136,7 +129,6 @@ function App() {
   };
 
   const startSocialMediaPipeline = async (fromPipeline = false) => {
-    if (isProcessing) return;
     if (files.length === 0 && !fromPipeline) return;
     setStatus("social-media-running");
     setErrorMessage("");
@@ -175,7 +167,6 @@ function App() {
 
       setSmResults(results);
       setStatus("social-media-done");
-      showToast(`SM paketi tamamlandı! ${results.filter(r => r.status === "done").length} görsel hazır.`);
     } catch (err: any) {
       handleError(err);
     }
@@ -232,7 +223,7 @@ function App() {
     startSocialMediaPipeline(true);
   };
 
-  const retrySocialMediaShot = useCallback(async (shotId: string) => {
+  const retrySocialMediaShot = async (shotId: string) => {
     const shot = SOCIAL_MEDIA_SHOTS.find(s => s.id === shotId);
     if (!shot || !analysis) return;
 
@@ -246,16 +237,16 @@ function App() {
         analysis.signatureDetails,
         productName,
         smBrandName,
-        !!smLogoBase64
+        smLogoBase64
       );
       const imageUrl = await api.generateImageRaw(prompt, b64List, shot.aspectRatio, shot.hasText);
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
     } catch (err: any) {
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
     }
-  }, [files, analysis, smBrandName, smLogoBase64]);
+  };
 
-  const reviseSocialMediaShot = useCallback(async (shotId: string, instruction: string) => {
+  const reviseSocialMediaShot = async (shotId: string, instruction: string) => {
     const current = smResults.find(r => r.id === shotId);
     if (!current?.imageUrl) return;
     const currentUrl = current.imageUrl;
@@ -268,10 +259,9 @@ function App() {
     } catch (err: any) {
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: currentUrl, status: "done" as const, error: err.message } : r));
     }
-  }, [smResults]);
+  };
 
   const startPipeline = async () => {
-    if (isProcessing) return;
     if (files.length === 0 || pipelineEnabledShots.size === 0) return;
     setStatus("analyzing"); setErrorMessage("");
     const b64List = files.map(f => f.base64);
@@ -288,12 +278,10 @@ function App() {
       const results = await runPipeline(
         b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
         Array.from(pipelineEnabledShots), pipelineUserNotes, pieceInfo,
-        (progress) => setPipelineProgress({ ...progress }),
-        imageSize
+        (progress) => setPipelineProgress({ ...progress })
       );
       setPipelineResults(results);
       setStatus("pipeline-done");
-      showToast(`Pipeline tamamlandı! ${results.filter(r => r.status === "done").length} görsel hazır.`);
       if (autoSocialMedia) {
         setTimeout(() => generateSeoCard(), 500);
       }
@@ -314,8 +302,7 @@ function App() {
       const results = await runPipeline(
         allReferences, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
         enabledIds, pipelineUserNotes, pieceInfo,
-        (progress) => setPipelineProgress({ ...progress }),
-        imageSize
+        (progress) => setPipelineProgress({ ...progress })
       );
       // Hero'yu sonuçların başına ekle
       const heroResult: PipelineResultType = {
@@ -329,7 +316,7 @@ function App() {
     } catch (err: any) { handleError(err); }
   };
 
-  const retryPipelineShot = useCallback(async (shotId: string) => {
+  const retryPipelineShot = async (shotId: string) => {
     const shot = PIPELINE_SHOTS.find(s => s.id === shotId);
     if (!shot || !analysis) return;
     const b64List = files.map(f => f.base64);
@@ -347,14 +334,14 @@ function App() {
         aspectRatio
       );
       const allRefs = generatedImage ? [...b64List, generatedImage] : b64List;
-      const imageUrl = await api.generateImageRaw(prompt, allRefs, aspectRatio, shot.textFirst, imageSize);
+      const imageUrl = await api.generateImageRaw(prompt, allRefs, aspectRatio, shot.textFirst);
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
     }
-  }, [files, analysis, pipelineUserNotes, pipelinePieceCount, aspectRatio, generatedImage]);
+  };
 
-  const revisePipelineShot = useCallback(async (shotId: string, instruction: string) => {
+  const revisePipelineShot = async (shotId: string, instruction: string) => {
     const currentResult = pipelineResults.find(r => r.id === shotId);
     if (!currentResult?.imageUrl) return;
     const currentImageUrl = currentResult.imageUrl;
@@ -362,15 +349,14 @@ function App() {
     setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const, error: undefined } : r));
 
     try {
-      const revisedUrl = await api.reviseGeneratedImage(currentImageUrl, instruction, aspectRatio, undefined, imageSize);
+      const revisedUrl = await api.reviseGeneratedImage(currentImageUrl, instruction, aspectRatio);
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: revisedUrl, status: "done" as const } : r));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: currentImageUrl, status: "done" as const, error: err.message } : r));
     }
-  }, [pipelineResults, aspectRatio]);
+  };
 
   const startAnalysis = async () => {
-    if (isProcessing) return;
     if (files.length === 0) return;
     setStatus("analyzing"); setErrorMessage("");
     const b64List = files.map(f => f.base64);
@@ -383,7 +369,7 @@ function App() {
         ].filter(Boolean).join("\n");
         const result = await api.analyzeProductPhotos(b64List, ctx || undefined);
         setAnalysis(result); setStatus("generating");
-        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio, imageSize);
+        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
       } else if (mode === "infographic") {
         const result = await api.analyzeInfographic(b64List);
@@ -391,7 +377,7 @@ function App() {
       } else if (mode === "box-content") {
         const result = await api.analyzeBoxContent(b64List, boxContentText);
         setBoxContentAnalysis(result); setStatus("generating");
-        const img = await api.generateBoxContentImage(result.generationPrompt, b64List, result.itemsList, aspectRatio, imageSize);
+        const img = await api.generateBoxContentImage(result.generationPrompt, b64List, result.itemsList, aspectRatio);
         setGeneratedImage(img); setStatus("done");
       } else if (mode === "angles") {
         const result = await api.analyzeProductAngles(b64List);
@@ -406,7 +392,7 @@ function App() {
     const b64List = files.map(f => f.base64);
     try {
       if (mode === "angles" && anglesAnalysis) {
-        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio, imageSize));
+        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio));
         setStatus("done"); return;
       }
       let prompt = "";
@@ -415,9 +401,9 @@ function App() {
       if (mode === "box-content" && boxContentAnalysis) prompt = boxContentAnalysis.generationPrompt;
       if (changeComposition) prompt += " CRITICAL: Create a DIFFERENT camera angle and composition while keeping the product 100% the same.";
       let img = "";
-      if (mode === "photography") img = await api.generateProfessionalImage(prompt, b64List, aspectRatio, imageSize);
-      else if (mode === "infographic") img = await api.generateInfographicImage(prompt, b64List, Array.from(selectedBadges), aspectRatio, imageSize);
-      else if (mode === "box-content" && boxContentAnalysis) img = await api.generateBoxContentImage(prompt, b64List, boxContentAnalysis.itemsList, aspectRatio, imageSize);
+      if (mode === "photography") img = await api.generateProfessionalImage(prompt, b64List, aspectRatio);
+      else if (mode === "infographic") img = await api.generateInfographicImage(prompt, b64List, Array.from(selectedBadges), aspectRatio);
+      else if (mode === "box-content" && boxContentAnalysis) img = await api.generateBoxContentImage(prompt, b64List, boxContentAnalysis.itemsList, aspectRatio);
       setGeneratedImage(img); setStatus("done");
     } catch (err: any) { handleError(err); }
   };
@@ -427,9 +413,9 @@ function App() {
     setStatus("generating");
     try {
       if (mode === "infographic" && infographicAnalysis) {
-        setGeneratedImage(await api.generateInfographicImage(infographicAnalysis.generationPrompt, b64List, Array.from(selectedBadges), aspectRatio, imageSize));
+        setGeneratedImage(await api.generateInfographicImage(infographicAnalysis.generationPrompt, b64List, Array.from(selectedBadges), aspectRatio));
       } else if (mode === "angles" && anglesAnalysis) {
-        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio, imageSize));
+        setGeneratedImage(await api.generateProductAngleImage(anglesAnalysis.basePrompt, b64List, selectedAngle, aspectRatio));
       }
       setStatus("done");
     } catch (err: any) { handleError(err); }
@@ -438,13 +424,10 @@ function App() {
   const handleRevise = async (prompt: string, refFile?: File) => {
     if (!generatedImage) return;
     const refB64 = refFile ? await api.fileToBase64(refFile) : undefined;
-    setGeneratedImage(await api.reviseGeneratedImage(generatedImage, prompt, aspectRatio, refB64, imageSize));
+    setGeneratedImage(await api.reviseGeneratedImage(generatedImage, prompt, aspectRatio, refB64));
   };
 
   const reset = () => {
-    if (pipelineResults.length > 0 || smResults.length > 0 || generatedImage) {
-      if (!window.confirm("Tüm sonuçlar silinecek. Emin misiniz?")) return;
-    }
     setFiles([]); setStatus("idle"); setGeneratedImage(null); setBoxContentText("");
     setAnalysis(null); setInfographicAnalysis(null); setBoxContentAnalysis(null);
     setAnglesAnalysis(null); setPipelineProgress(null); setPipelineResults([]);
@@ -529,8 +512,6 @@ function App() {
           onEnabledShotsChange={setPipelineEnabledShots}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
-          imageSize={imageSize}
-          onImageSizeChange={setImageSize}
           pieceCount={pipelinePieceCount}
           onPieceCountChange={setPipelinePieceCount}
           userNotes={pipelineUserNotes}
@@ -566,15 +547,10 @@ function App() {
           onLogoChange={setSmLogoBase64}
           enabledShots={smEnabledShots}
           onEnabledShotsChange={setSmEnabledShots}
-          pieceCount={pipelinePieceCount}
-          onPieceCountChange={setPipelinePieceCount}
-          userNotes={pipelineUserNotes}
-          onUserNotesChange={setPipelineUserNotes}
         />
       ) : (
         <SettingsPanel
           mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
-          imageSize={imageSize} onImageSizeChange={setImageSize}
           selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
           selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
           boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
@@ -749,8 +725,6 @@ function App() {
                   onEnabledShotsChange={setPipelineEnabledShots}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
-                  imageSize={imageSize}
-                  onImageSizeChange={setImageSize}
                   pieceCount={pipelinePieceCount}
                   onPieceCountChange={setPipelinePieceCount}
                   userNotes={pipelineUserNotes}
@@ -853,10 +827,6 @@ function App() {
                   onLogoChange={setSmLogoBase64}
                   enabledShots={smEnabledShots}
                   onEnabledShotsChange={setSmEnabledShots}
-                  pieceCount={pipelinePieceCount}
-                  onPieceCountChange={setPipelinePieceCount}
-                  userNotes={pipelineUserNotes}
-                  onUserNotesChange={setPipelineUserNotes}
                 />
               )}
 
@@ -1011,7 +981,6 @@ function App() {
               <UploadZone files={files} onFilesChange={setFiles} disabled={isProcessing} />
               <SettingsPanel
                 mode={mode} aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
-                imageSize={imageSize} onImageSizeChange={setImageSize}
                 selectedAngle={selectedAngle} onAngleChange={setSelectedAngle}
                 selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
                 boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
@@ -1142,19 +1111,6 @@ function App() {
           </button>
         </div>
       </footer>
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 bg-surface border border-border rounded-xl shadow-xl text-sm text-text font-medium z-[100]"
-          >
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

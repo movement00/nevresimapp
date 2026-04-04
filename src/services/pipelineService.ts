@@ -44,7 +44,6 @@ const DECOR_SETS = [
 ];
 
 let decorIndex = 0;
-function resetDecorIndex(): void { decorIndex = 0; }
 function nextDecorSet(): string {
   const set = DECOR_SETS[decorIndex % DECOR_SETS.length];
   decorIndex++;
@@ -324,10 +323,8 @@ export async function runPipeline(
   enabledShotIds: string[],
   userNotes: string,
   pieceInfo: string,
-  onProgress: PipelineCallback,
-  imageSize: string = "2K"
+  onProgress: PipelineCallback
 ): Promise<PipelineResult[]> {
-  resetDecorIndex();
   const shots = PIPELINE_SHOTS.filter((s) => enabledShotIds.includes(s.id));
 
   const results: PipelineResult[] = shots.map((s) => ({
@@ -391,7 +388,7 @@ export async function runPipeline(
         refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
       }
 
-      const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst, imageSize);
+      const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
       results[idx].imageUrl = imageUrl;
       results[idx].status = "done";
     } catch (err: any) {

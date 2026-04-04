@@ -1,18 +1,11 @@
 import { PIPELINE_SHOTS } from "../services/pipelineService";
 import { ASPECT_RATIOS, PIECE_PRESETS } from "../constants";
 
-const IMAGE_SIZES = [
-  { label: "2K", value: "2K", desc: "Standart" },
-  { label: "4K", value: "4K", desc: "Katalog" },
-];
-
 interface PipelineConfigProps {
   enabledShots: Set<string>;
   onEnabledShotsChange: (shots: Set<string>) => void;
   aspectRatio: string;
   onAspectRatioChange: (ratio: string) => void;
-  imageSize: string;
-  onImageSizeChange: (size: string) => void;
   pieceCount: number;
   onPieceCountChange: (count: number) => void;
   userNotes: string;
@@ -30,7 +23,6 @@ const GROUP_META: Record<string, { label: string; color: string }> = {
 export function PipelineConfig({
   enabledShots, onEnabledShotsChange,
   aspectRatio, onAspectRatioChange,
-  imageSize, onImageSizeChange,
   pieceCount, onPieceCountChange,
   userNotes, onUserNotesChange,
   autoSocialMedia, onAutoSocialMediaChange,
@@ -60,7 +52,7 @@ export function PipelineConfig({
             <button
               key={preset.count}
               onClick={() => onPieceCountChange(preset.count)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold font-mono transition-all disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold font-mono transition-all ${
                 pieceCount === preset.count
                   ? "bg-accent text-black"
                   : "bg-surface-2 text-muted hover:text-text border border-border"
@@ -83,7 +75,7 @@ export function PipelineConfig({
           <span className="text-[10px] font-mono text-subtle uppercase tracking-widest">
             Görsel Seti ({enabledShots.size}/{PIPELINE_SHOTS.length})
           </span>
-          <button onClick={toggleAll} className="text-[11px] text-accent hover:text-accent-hover font-medium transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50">
+          <button onClick={toggleAll} className="text-[11px] text-accent hover:text-accent-hover font-medium transition-colors">
             {enabledShots.size === PIPELINE_SHOTS.length ? "Temizle" : "Tümü"}
           </button>
         </div>
@@ -137,33 +129,13 @@ export function PipelineConfig({
             <button
               key={r.value}
               onClick={() => onAspectRatioChange(r.value)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium font-mono transition-all disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium font-mono transition-all ${
                 aspectRatio === r.value
                   ? "bg-accent text-black"
                   : "bg-surface-2 text-muted hover:text-text border border-border"
               }`}
             >
               {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Resolution */}
-      <div className="bg-surface rounded-xl border border-border p-4">
-        <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-2.5">Çözünürlük</p>
-        <div className="flex gap-1.5">
-          {IMAGE_SIZES.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => onImageSizeChange(s.value)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium font-mono transition-all ${
-                imageSize === s.value
-                  ? "bg-accent text-black"
-                  : "bg-surface-2 text-muted hover:text-text border border-border"
-              }`}
-            >
-              {s.label} <span className="text-[9px] opacity-70">{s.desc}</span>
             </button>
           ))}
         </div>
@@ -186,7 +158,7 @@ export function PipelineConfig({
       <div className="flex items-center gap-2.5 p-3 bg-bg border border-border rounded-lg">
         <button
           onClick={() => onAutoSocialMediaChange(!autoSocialMedia)}
-          className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border transition-all disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border transition-all ${
             autoSocialMedia ? "bg-accent border-accent" : "border-border"
           }`}
         >

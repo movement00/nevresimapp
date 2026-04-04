@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import heic2any from "heic2any";
 import type { UploadedFile } from "../types";
@@ -13,23 +13,6 @@ interface UploadZoneProps {
 
 export function UploadZone({ files, onFilesChange, disabled }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Revoke all object URLs on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      files.forEach((f) => {
-        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-      });
-    };
-  }, [files]);
-
-  // Auto-dismiss error after 5 seconds
-  useEffect(() => {
-    if (!error) return;
-    const timer = setTimeout(() => setError(null), 5000);
-    return () => clearTimeout(timer);
-  }, [error]);
 
   const processFiles = useCallback(async (selectedFiles: File[]) => {
     if (files.length + selectedFiles.length > MAX_FILES) {
@@ -41,23 +24,18 @@ export function UploadZone({ files, onFilesChange, disabled }: UploadZoneProps) 
         let processedFile = file;
         if (file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic")) {
           try {
-            const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+            const converted = await heic2any({ blob: file, toType: "image/jpeg" });
             const blobArr = Array.isArray(converted) ? converted : [converted];
             processedFile = new File(blobArr, file.name.replace(/\.heic$/i, ".jpg"), { type: "image/jpeg" });
           } catch (err) {
-            // HEIC conversion failed — use original file as-is (browser may handle it natively)
-            console.warn("HEIC dönüşüm başarısız, orijinal dosya kullanılıyor:", err);
-            processedFile = file;
+            console.error("HEIC dönüşüm hatası:", err);
           }
         }
         const base64 = await fileToBase64(processedFile);
         return { id: crypto.randomUUID(), file: processedFile, previewUrl: URL.createObjectURL(processedFile), base64 };
       })
     );
-    const validFiles = newFiles.filter((f) => f !== null) as UploadedFile[];
-    if (validFiles.length > 0) {
-      onFilesChange([...files, ...validFiles]);
-    }
+    onFilesChange([...files, ...newFiles]);
   }, [files, onFilesChange]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -73,47 +51,11 @@ export function UploadZone({ files, onFilesChange, disabled }: UploadZoneProps) 
     if (e.target.files) processFiles(Array.from(e.target.files));
   };
 
-  const removeFile = (id: string) => {
-    const fileToRemove = files.find(f => f.id === id);
-    if (fileToRemove?.previewUrl) {
-      URL.revokeObjectURL(fileToRemove.previewUrl);
-    }
-    onFilesChange(files.filter(f => f.id !== id));
-  };
-
-  const clearAll = () => {
-    files.forEach((f) => {
-      if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-    });
-    onFilesChange([]);
-  };
-
+  const removeFile = (id: string) => onFilesChange(files.filter(f => f.id !== id));
   const hasFiles = files.length > 0;
 
   return (
     <div className="space-y-2">
-      {/* Error banner */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-error/10 border border-error/20 text-error text-xs font-mono"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span className="flex-1">{error}</span>
-            <button onClick={() => setError(null)} className="shrink-0 hover:opacity-70">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
@@ -176,7 +118,7 @@ export function UploadZone({ files, onFilesChange, disabled }: UploadZoneProps) 
                   transition={{ delay: i * 0.03, type: "spring", stiffness: 400, damping: 28 }}
                   className="relative group/thumb aspect-square rounded-lg overflow-hidden bg-surface-3"
                 >
-                  <img src={f.previewUrl} alt={`Yüklenen ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
+                  <img src={f.previewUrl} alt={`Yüklenen ${i + 1}`} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/30 transition-colors" />
                   <button
                     onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
@@ -214,7 +156,7 @@ export function UploadZone({ files, onFilesChange, disabled }: UploadZoneProps) 
             {files.length < 3 && <span className="text-accent/70"> · 3+ önerilir</span>}
           </p>
           <button
-            onClick={clearAll}
+            onClick={() => onFilesChange([])}
             className="text-[10px] font-mono text-subtle hover:text-error transition-colors"
           >
             Temizle

@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PipelineResult } from "../services/pipelineService";
 
@@ -10,30 +10,11 @@ interface PipelineResultsProps {
   onStartSocialMedia?: () => void;
 }
 
-function ImageWithSkeleton({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <div className="relative w-full h-full">
-      {!loaded && (
-        <div className="absolute inset-0 bg-surface animate-pulse rounded" />
-      )}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        className={`${className ?? ""} ${loaded ? "opacity-100" : "opacity-0"} transition-opacity duration-300`}
-      />
-    </div>
-  );
-}
-
-function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onStartSocialMedia }: PipelineResultsProps) {
+export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, onStartSocialMedia }: PipelineResultsProps) {
   const [zoomedImage, setZoomedImage] = useState<{ url: string; label: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [reviseId, setReviseId] = useState<string | null>(null);
   const [reviseText, setReviseText] = useState("");
-  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
 
   const successResults = results.filter(r => r.status === "done" && r.imageUrl);
   const errorCount = results.filter(r => r.status === "error").length;
@@ -44,25 +25,13 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
     setSelectedIds(next);
   };
 
-  const markDownloaded = useCallback((id: string) => {
-    setDownloadedIds(prev => new Set(prev).add(id));
-    setTimeout(() => {
-      setDownloadedIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }, 2000);
-  }, []);
-
-  const downloadSingle = useCallback((result: PipelineResult) => {
+  const downloadSingle = (result: PipelineResult) => {
     if (!result.imageUrl) return;
     const link = document.createElement("a");
     link.href = result.imageUrl;
     link.download = `proshop-${result.id}-${Date.now()}.png`;
     link.click();
-    markDownloaded(result.id);
-  }, [markDownloaded]);
+  };
 
   const downloadAll = () => {
     const toDownload = selectedIds.size > 0
@@ -86,25 +55,22 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-0 sm:p-4 cursor-zoom-out touch-none"
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out"
             onClick={() => setZoomedImage(null)}
-            onTouchEnd={() => setZoomedImage(null)}
           >
             <motion.img
               initial={{ scale: 0.92 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.92 }}
               src={zoomedImage.url}
-              alt={zoomedImage.label}
-              loading="lazy"
-              className="max-w-full max-h-[100dvh] sm:max-h-[90vh] object-contain sm:rounded-lg"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
             />
-            <div className="absolute top-3 sm:top-5 left-3 sm:left-5 text-white/70 text-xs font-medium bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+            <div className="absolute top-5 left-5 text-white/70 text-xs font-medium bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
               {zoomedImage.label}
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}
-              className="absolute top-3 sm:top-5 right-3 sm:right-5 text-white/60 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 sm:p-2 rounded-full backdrop-blur-sm transition-colors"
+              className="absolute top-5 right-5 text-white/60 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-sm transition-colors"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -152,8 +118,8 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
           </button>
         )}
 
-        {/* Grid - responsive: 1 col mobile, 2 col md, 3 col lg */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {results.map((result, i) => (
             <motion.div
               key={result.id}
@@ -179,11 +145,7 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
                     className="aspect-[4/3] cursor-zoom-in"
                     onClick={() => setZoomedImage({ url: result.imageUrl!, label: result.label })}
                   >
-                    <ImageWithSkeleton
-                      src={result.imageUrl}
-                      alt={result.label}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={result.imageUrl} alt={result.label} className="w-full h-full object-cover" />
                   </div>
                   {/* Hover actions */}
                   <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -200,18 +162,10 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); downloadSingle(result); }}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                        downloadedIds.has(result.id)
-                          ? "bg-green-500 text-white"
-                          : "bg-black/50 backdrop-blur-sm text-white hover:bg-black/70"
-                      }`}
-                      title={downloadedIds.has(result.id) ? "İndirildi" : "İndir"}
+                      className="w-7 h-7 bg-black/50 backdrop-blur-sm text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                      title="İndir"
                     >
-                      {downloadedIds.has(result.id) ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                      ) : (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      )}
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </button>
                   </div>
                   {/* Bottom action bar */}
@@ -274,7 +228,7 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
                         <button
                           onClick={() => handleReviseSubmit(result.id)}
                           disabled={!reviseText.trim()}
-                          className="flex-1 py-1.5 bg-accent text-black rounded-md text-[10px] font-semibold hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:pointer-events-none disabled:cursor-not-allowed"
+                          className="flex-1 py-1.5 bg-accent text-black rounded-md text-[10px] font-semibold hover:bg-accent-hover transition-colors disabled:opacity-30"
                         >
                           Revize Et
                         </button>
@@ -296,5 +250,3 @@ function PipelineResultsInner({ results, onReset, onRetryShot, onReviseShot, onS
     </>
   );
 }
-
-export const PipelineResults = memo(PipelineResultsInner);
