@@ -16,8 +16,8 @@ const getAiClient = () => {
 
 // Analiz (text-only) için model
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview";
-// Görsel üretim için model — Nano Banana Pro
-const IMAGE_GEN_MODEL = "gemini-3-pro-image-preview";
+// Görsel üretim için model
+const IMAGE_GEN_MODEL = "gemini-3.1-pro-preview";
 
 const getInlineData = (base64String: string) => {
   const matches = base64String.match(/^data:([^;]*);base64,(.+)$/);
