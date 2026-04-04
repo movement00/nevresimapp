@@ -387,39 +387,30 @@ function App() {
 
         // Detail Control Agent
         addLog("🔍 Bölge tespiti başlıyor...");
+        const cropRefs: string[] = [];
         try {
           const detected = await api.detectProductRegions(b64List);
           const foundRegions = Object.keys(detected).filter(k => (detected as any)[k]);
           addLog(`📐 ${foundRegions.length} bölge bulundu: ${foundRegions.join(", ") || "yok"}`);
-          const croppedRegions: Record<string, string> = {};
           const { cropRegion } = await import("./lib/cropRegion");
           for (const [key, region] of Object.entries(detected)) {
             if (region && region.imageIndex < b64List.length) {
               try {
                 addLog(`✂️ ${key} kırpılıyor...`);
-                croppedRegions[key] = await cropRegion(b64List[region.imageIndex], { x: region.x, y: region.y, w: region.w, h: region.h });
+                const cropped = await cropRegion(b64List[region.imageIndex], { x: region.x, y: region.y, w: region.w, h: region.h });
+                cropRefs.push(cropped);
               } catch { /* skip */ }
             }
           }
-          if (Object.keys(croppedRegions).length > 0) {
-            addLog("🧵 Detay Kontrol Agenti çalışıyor...");
-            const detailAnalysis = await api.analyzeDetailCrops(croppedRegions);
-            const detailLines: string[] = [];
-            if (detailAnalysis.embroidery) { addLog("✅ Nakış mikro-detayı çıkarıldı"); detailLines.push(`EMBROIDERY MICRO-DETAIL: ${detailAnalysis.embroidery}`); }
-            if (detailAnalysis.edge) { addLog("✅ Kenar dikişi mikro-detayı çıkarıldı"); detailLines.push(`EDGE TREATMENT MICRO-DETAIL: ${detailAnalysis.edge}`); }
-            if (detailAnalysis.pillow) { addLog("✅ Yastık mikro-detayı çıkarıldı"); detailLines.push(`PILLOW MICRO-DETAIL: ${detailAnalysis.pillow}`); }
-            if (detailAnalysis.pattern) { addLog("✅ Kumaş deseni mikro-detayı çıkarıldı"); detailLines.push(`FABRIC PATTERN MICRO-DETAIL: ${detailAnalysis.pattern}`); }
-            if (detailLines.length > 0) {
-              const detailBlock = `\n\n══ DETAIL CONTROL AGENT FINDINGS ══\n${detailLines.join("\n")}\nYou MUST reproduce these exact details in the generated image.`;
-              result.generationPrompt += detailBlock;
-              addLog(`🎯 ${detailLines.length} mikro-detay prompt'a enjekte edildi`);
-            }
+          if (cropRefs.length > 0) {
+            addLog(`🎯 ${cropRefs.length} detay crop'u referans görsellere eklendi`);
           }
-        } catch { addLog("⚠️ Detay analizi atlandı"); }
+        } catch { addLog("⚠️ Detay tespiti atlandı"); }
 
         addLog(`🖼️ Görsel üretiliyor (${imageQuality})...`);
         setStatus("generating");
-        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
+        const allRefs = [...cropRefs, ...b64List];
+        const img = await api.generateProfessionalImage(result.generationPrompt, allRefs, aspectRatio);
         setGeneratedImage(img); setStatus("done");
         addLog("✅ Görsel üretimi tamamlandı");
       } else if (mode === "infographic") {

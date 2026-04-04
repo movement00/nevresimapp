@@ -1,4 +1,4 @@
-import { generateImageRaw, detectProductRegions, analyzeDetailCrops } from "./geminiService";
+import { generateImageRaw, detectProductRegions } from "./geminiService";
 import { cropRegion } from "../lib/cropRegion";
 
 export interface PipelineShot {
@@ -381,35 +381,7 @@ export async function runPipeline(
 
   // ── Detail Control Agent: analyze each crop for micro-details ──
   if (Object.keys(croppedRegions).length > 0) {
-    try {
-      log("🧵 Detay Kontrol Agenti çalışıyor — mikro-detaylar analiz ediliyor...");
-      const detailAnalysis = await analyzeDetailCrops(croppedRegions);
-      const detailLines: string[] = [];
-      if (detailAnalysis.embroidery) {
-        log("✅ Nakış mikro-detayı çıkarıldı");
-        detailLines.push(`EMBROIDERY MICRO-DETAIL: ${detailAnalysis.embroidery}`);
-      }
-      if (detailAnalysis.edge) {
-        log("✅ Kenar dikişi mikro-detayı çıkarıldı");
-        detailLines.push(`EDGE TREATMENT MICRO-DETAIL: ${detailAnalysis.edge}`);
-      }
-      if (detailAnalysis.pillow) {
-        log("✅ Yastık mikro-detayı çıkarıldı");
-        detailLines.push(`PILLOW MICRO-DETAIL: ${detailAnalysis.pillow}`);
-      }
-      if (detailAnalysis.pattern) {
-        log("✅ Kumaş deseni mikro-detayı çıkarıldı");
-        detailLines.push(`FABRIC PATTERN MICRO-DETAIL: ${detailAnalysis.pattern}`);
-      }
-      if (detailLines.length > 0) {
-        const detailBlock = `\n\n══ DETAIL CONTROL AGENT FINDINGS ══\n${detailLines.join("\n")}\nYou MUST reproduce these exact details in the generated image.`;
-        fullSignatureDetails += detailBlock;
-        fullGenerationPrompt += detailBlock;
-        log(`🎯 ${detailLines.length} mikro-detay prompt'a enjekte edildi`);
-      }
-    } catch {
-      log("⚠️ Detay analizi başarısız — standart detaylarla devam ediliyor");
-    }
+    log(`🎯 ${Object.keys(croppedRegions).length} detay crop'u referans görsellere eklenecek`);
   }
 
   // Fully sequential — one shot at a time, model gets full attention per shot
@@ -422,12 +394,9 @@ export async function runPipeline(
     try {
       const prompt = shot.promptBuilder(fullGenerationPrompt, fullSignatureDetails, pieceInfo, aspectRatio);
 
-      // Build references: cropped region (if available) + all original references
-      let refs = referenceImagesBase64;
-      if (shot.focusRegion && croppedRegions[shot.focusRegion]) {
-        refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
-        log(`   → ${shot.focusRegion} crop'u referansa eklendi`);
-      }
+      // Build references: all crops + all original references
+      const allCrops = Object.values(croppedRegions);
+      const refs = [...allCrops, ...referenceImagesBase64];
 
       const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
       results[idx].imageUrl = imageUrl;
