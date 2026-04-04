@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis } from "../types";
 
-let apiKey = "AIzaSyA0opdG5RW4CuMye6rZeUCMM9ynVwPvd8w";
+let apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 export const setApiKey = (key: string) => {
   apiKey = key;
