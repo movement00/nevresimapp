@@ -579,6 +579,7 @@ function App() {
           selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
           boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
           pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
+          imageQuality={imageQuality} onImageQualityChange={setImageQuality}
           userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
         />
       )}
@@ -1031,6 +1032,7 @@ function App() {
                 selectedBadges={selectedBadges} onBadgeToggle={handleBadgeToggle}
                 boxContentText={boxContentText} onBoxContentTextChange={setBoxContentText}
                 pieceCount={pipelinePieceCount} onPieceCountChange={setPipelinePieceCount}
+                imageQuality={imageQuality} onImageQualityChange={setImageQuality}
                 userNotes={pipelineUserNotes} onUserNotesChange={setPipelineUserNotes}
               />
               {status === "idle" && (

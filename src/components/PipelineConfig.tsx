@@ -148,7 +148,7 @@ export function PipelineConfig({
       <div className="bg-surface rounded-xl border border-border p-4">
         <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-2.5">Görsel Kalitesi</p>
         <div className="flex gap-1.5">
-          {["1K", "2K", "4K"].map((q) => (
+          {["2K", "4K"].map((q) => (
             <button
               key={q}
               onClick={() => onImageQualityChange(q)}
