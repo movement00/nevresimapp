@@ -23,7 +23,7 @@ const getAiClient = () => {
 
 // Analiz (text-only) için model
 const ANALYSIS_MODEL = "gemini-3-pro-preview";
-// Görsel üretim Fal AI Nano Banana 2 üzerinden
+// Görsel üretim Fal AI Nano Banana Pro üzerinden
 const FAL_KEY = '729373d1-5cb9-43ae-bac2-f298a5101cb6:b78570140f86fdc36f4915d8614edf4c';
 
 const generateWithFalAI = async (
@@ -36,7 +36,7 @@ const generateWithFalAI = async (
     return `data:image/jpeg;base64,${b64}`;
   });
 
-  const res = await fetch('https://fal.run/fal-ai/nano-banana-2/edit', {
+  const res = await fetch('https://fal.run/fal-ai/nano-banana-pro/edit', {
     method: 'POST',
     headers: {
       'Authorization': `Key ${FAL_KEY}`,
