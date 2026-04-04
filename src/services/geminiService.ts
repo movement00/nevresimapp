@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis } from "../types";
 
-let apiKey = "";
+const DEFAULT_GEMINI_KEY = "AIzaSyBm6PW5BzpBHWVWtbNZPp96pmmN75oJSsg";
+let apiKey = DEFAULT_GEMINI_KEY;
 
 export const setApiKey = (key: string) => {
   apiKey = key;
