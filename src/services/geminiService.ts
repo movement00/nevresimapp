@@ -19,11 +19,6 @@ const ANALYSIS_MODEL = "gemini-3-pro-preview";
 // Görsel üretim için model — Nano Banana 2
 const IMAGE_GEN_MODEL = "gemini-3.1-flash-image-preview";
 
-// Global image size setting
-let globalImageSize = "2K";
-export const setImageSize = (size: string) => { globalImageSize = size; };
-export const getImageSize = () => globalImageSize;
-
 const getInlineData = (base64String: string) => {
   const matches = base64String.match(/^data:([^;]*);base64,(.+)$/);
   if (matches) {
@@ -118,9 +113,8 @@ Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED I
           suggestedTitle: { type: Type.STRING },
           signatureDetails: { type: Type.STRING, description: "Complete product detail map: piece inventory, exact colors per piece, embroidery motif+position+color (or 'no embroidery'), edge treatment type+color, fabric surface character." },
           generationPrompt: { type: Type.STRING, description: "Full generation prompt that explicitly states all product details (pieces, colors, embroidery position, edge treatment) then describes a new high-end bedroom scene." },
-          pieceInfo: { type: Type.STRING, description: "Detected piece list in Turkish, e.g. '1 nevresim, 1 çarşaf, 2 uyku yastığı kılıfı, 2 dekoratif nakışlı yastık kılıfı'. Count exactly what you see — could be a nevresim set, pike set, or any bedding combination. Do NOT assume a fixed set — detect from images." },
         },
-        required: ["productCategory", "marketingDescription", "generationPrompt", "suggestedTitle", "signatureDetails", "pieceInfo"]
+        required: ["productCategory", "marketingDescription", "generationPrompt", "suggestedTitle", "signatureDetails"]
       }
     }
   });
@@ -156,7 +150,7 @@ export const generateImageRaw = async (
     config: {
       imageConfig: {
         aspectRatio: aspectRatio as any,
-        imageSize: globalImageSize as any,
+        imageSize: "2K",
       },
     }
   });
@@ -204,7 +198,7 @@ export const generateProfessionalImage = async (
     config: {
       imageConfig: {
         aspectRatio: aspectRatio as any,
-        imageSize: globalImageSize as any,
+        imageSize: "2K",
       },
     }
   });
@@ -282,7 +276,7 @@ export const generateInfographicImage = async (
     config: {
       imageConfig: {
         aspectRatio: aspectRatio as any,
-        imageSize: globalImageSize as any,
+        imageSize: "2K",
       },
     }
   });
@@ -339,7 +333,7 @@ Items: ${itemsList.join(", ")}. DO NOT return original. Product must match refer
     config: {
       imageConfig: {
         aspectRatio: aspectRatio as any,
-        imageSize: globalImageSize as any,
+        imageSize: "2K",
       },
     }
   });
@@ -412,7 +406,7 @@ export const generateProductAngleImage = async (
     config: {
       imageConfig: {
         aspectRatio: aspectRatio as any,
-        imageSize: globalImageSize as any,
+        imageSize: "2K",
       },
     }
   });
@@ -443,7 +437,7 @@ export const reviseGeneratedImage = async (
     config: {
       imageConfig: {
         aspectRatio: aspectRatio as any,
-        imageSize: globalImageSize as any,
+        imageSize: "2K",
       },
     }
   });
@@ -463,95 +457,6 @@ export const fileToBase64 = (file: File): Promise<string> => {
 };
 
 // ══════════════════════════════════════════════
-// Detail Control Agent — analyze cropped regions for micro-details
-// ══════════════════════════════════════════════
-
-export interface DetailAnalysis {
-  pillow?: string;
-  embroidery?: string;
-  edge?: string;
-  pattern?: string;
-}
-
-export const analyzeDetailCrops = async (
-  croppedRegions: Record<string, string>
-): Promise<DetailAnalysis> => {
-  const ai = getAiClient();
-  const result: DetailAnalysis = {};
-
-  const regionPrompts: Record<string, string> = {
-    embroidery: `You are examining a CLOSE-UP crop of embroidery/pattern on a bedding product. Describe with EXTREME precision:
-- Exact motif shape (leaf, flower, geometric, abstract — be very specific)
-- Number of motifs visible and their arrangement (scattered, clustered, border, centered)
-- Thread color(s) and any color gradients
-- Stitch type (satin stitch, chain stitch, cross stitch, etc.)
-- Thread thickness (fine/medium/heavy)
-- Direction of stitching
-- Whether the embroidery is raised/3D or flat
-- Symmetry or asymmetry of the design
-- Any gaps, spacing between motifs
-Write a single dense paragraph. Be specific enough that someone could recreate this embroidery exactly.`,
-
-    edge: `You are examining a CLOSE-UP crop of the edge/border treatment on a bedding product. Describe with EXTREME precision:
-- Exact type: piping (raised cord inside), flat decorative strip, bias tape, simple hem, ruffled edge, or other
-- Width of the edge treatment in approximate mm
-- Color(s) of the edge — is it same as fabric or contrasting?
-- Stitching visible? Single line, double line, zigzag?
-- Is it sewn on top of the fabric or folded over the edge?
-- Texture difference from main fabric (shinier, matte, different weave?)
-- Corner treatment (mitered, rounded, overlapped?)
-Write a single dense paragraph. Be specific enough that someone could recreate this edge treatment exactly.`,
-
-    pattern: `You are examining a CLOSE-UP crop of a FABRIC PATTERN on a bedding product (pike, jacquard, printed, woven). Describe with EXTREME precision:
-- Pattern type: jacquard weave, quilted/pike texture, printed, embossed, or other
-- Exact motif shapes (geometric diamonds, leaves, flowers, abstract, damask, etc.)
-- Pattern repeat size (approximate cm)
-- Pattern arrangement (grid, diagonal, scattered, bordered)
-- Texture depth: is the pattern raised/3D (jacquard/pike) or flat (printed)?
-- Color variations within the pattern (tone-on-tone, contrasting, gradient)
-- Background texture between motifs (smooth, ribbed, waffle, honeycomb)
-- Overall surface feel (matte, slight sheen, glossy)
-Write a single dense paragraph. Be specific enough that someone could recreate this exact fabric pattern.`,
-
-    pillow: `You are examining a CLOSE-UP crop of a decorative pillowcase from a bedding set. Describe with EXTREME precision:
-- Overall shape and stuffing level (flat, medium, very plump)
-- Main fabric color and texture
-- Any embroidery: exact motif, position on pillowcase face, thread color
-- Edge/border treatment on the pillowcase
-- Any flange, ruffle, or decorative trim
-- How the opening/closure side looks if visible
-- Fabric sheen (matte, slight sheen, satin glossy)
-Write a single dense paragraph. Be specific enough that someone could recreate this pillowcase exactly.`,
-  };
-
-  for (const [key, cropBase64] of Object.entries(croppedRegions)) {
-    const promptText = regionPrompts[key];
-    if (!promptText) continue;
-
-    try {
-      const parts: any[] = [
-        { inlineData: getInlineData(cropBase64) },
-        { text: promptText }
-      ];
-
-      const response = await ai.models.generateContent({
-        model: ANALYSIS_MODEL,
-        contents: { parts },
-      });
-
-      const text = response.text;
-      if (text) {
-        (result as any)[key] = text;
-      }
-    } catch {
-      // Skip failed analysis
-    }
-  }
-
-  return result;
-};
-
-// ══════════════════════════════════════════════
 // Region detection — find pillow/embroidery/edge areas in reference images
 // ══════════════════════════════════════════════
 
@@ -567,7 +472,6 @@ export interface DetectedRegionsResult {
   pillow?: RegionBox;
   embroidery?: RegionBox;
   edge?: RegionBox;
-  pattern?: RegionBox;
 }
 
 export const detectProductRegions = async (
@@ -582,8 +486,7 @@ export const detectProductRegions = async (
 Find these regions:
 1. PILLOW — The decorative pillowcase that has embroidery or pattern. Find the single best pillow visible across all images. Return the bounding box that tightly frames just that one pillow.
 2. EMBROIDERY — The embroidery, pattern, or textile detail area. Find the image where the embroidery/pattern is most visible and closest. Return a tight bounding box around JUST the embroidery motif area.
-3. EDGE — The edge treatment (piping, bias tape, decorative strip, border, fringe/tassel). Find the image where the edge/border detail is most visible. Return a tight bounding box around just the edge area.
-4. PATTERN — The fabric surface pattern (jacquard weave, pike/quilted texture, printed pattern, damask). Find the image where the fabric pattern/texture is most visible and closest. Return a tight bounding box around an area that clearly shows the repeating pattern. This is DIFFERENT from embroidery — this is the woven/printed pattern IN the fabric itself.
+3. EDGE — The edge treatment (piping, bias tape, decorative strip, border). Find the image where the edge/border detail is most visible. Return a tight bounding box around just the edge area.
 
 For each region, return:
 - imageIndex: which image (0-based index) shows this best
@@ -631,16 +534,6 @@ Images are numbered starting from 0 in the order provided.`
               },
             },
             edge: {
-              type: Type.OBJECT,
-              properties: {
-                imageIndex: { type: Type.NUMBER },
-                x: { type: Type.NUMBER },
-                y: { type: Type.NUMBER },
-                w: { type: Type.NUMBER },
-                h: { type: Type.NUMBER },
-              },
-            },
-            pattern: {
               type: Type.OBJECT,
               properties: {
                 imageIndex: { type: Type.NUMBER },

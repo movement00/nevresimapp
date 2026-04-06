@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { generateKenBurnsVideo } from "../services/videoService";
 
 interface ResultViewProps {
   imageUrl: string;
@@ -16,22 +15,6 @@ export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartP
   const [revisionText, setRevisionText] = useState("");
   const [isRevising, setIsRevising] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
-  const [videoGenerating, setVideoGenerating] = useState(false);
-  const [videoPct, setVideoPct] = useState(0);
-
-  const handleKenBurns = async () => {
-    setVideoGenerating(true); setVideoPct(0);
-    try {
-      const url = await generateKenBurnsVideo(imageUrl, 5, (pct) => setVideoPct(pct));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `proshop-reveal-${Date.now()}.mp4`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setVideoGenerating(false);
-    }
-  };
 
   const handleRevise = async () => {
     if (!revisionText.trim()) return;
@@ -162,17 +145,6 @@ export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartP
               Tam Set Üret
             </button>
           )}
-
-          <button
-            onClick={handleKenBurns}
-            disabled={videoGenerating}
-            className="flex items-center gap-1.5 px-4 py-2 bg-surface border border-border text-muted hover:text-text rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
-            {videoGenerating ? `Video ${videoPct}%` : "Reveal Video"}
-          </button>
 
           <button
             onClick={onReset}

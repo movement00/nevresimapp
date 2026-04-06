@@ -314,7 +314,6 @@ CRITICAL:
 ];
 
 export type PipelineCallback = (progress: PipelineProgress) => void;
-export type LogCallback = (message: string) => void;
 
 export async function runPipeline(
   referenceImagesBase64: string[],
@@ -324,10 +323,8 @@ export async function runPipeline(
   enabledShotIds: string[],
   userNotes: string,
   pieceInfo: string,
-  onProgress: PipelineCallback,
-  onLog?: LogCallback
+  onProgress: PipelineCallback
 ): Promise<PipelineResult[]> {
-  const log = onLog || (() => {});
   const shots = PIPELINE_SHOTS.filter((s) => enabledShotIds.includes(s.id));
 
   const results: PipelineResult[] = shots.map((s) => ({
@@ -350,8 +347,8 @@ export async function runPipeline(
   const userContext = userNotes
     ? `\n\nCONTEXT FROM USER (for accuracy only, do NOT render as text): ${userNotes}`
     : "";
-  let fullGenerationPrompt = generationPrompt + userContext;
-  let fullSignatureDetails = signatureDetails + userContext;
+  const fullGenerationPrompt = generationPrompt + userContext;
+  const fullSignatureDetails = signatureDetails + userContext;
 
   // ── Region detection: crop pillow/embroidery/edge from reference photos ──
   // This runs once before the pipeline starts. Cropped regions are prepended
@@ -361,14 +358,10 @@ export async function runPipeline(
 
   if (needsRegions) {
     try {
-      log("🔍 Bölge tespiti başladı — nakış, kenar, yastık aranıyor...");
       const detected = await detectProductRegions(referenceImagesBase64);
-      const foundRegions = Object.keys(detected).filter(k => (detected as any)[k]);
-      log(`📐 ${foundRegions.length} bölge bulundu: ${foundRegions.join(", ") || "yok"}`);
       for (const [key, region] of Object.entries(detected)) {
         if (region && region.imageIndex < referenceImagesBase64.length) {
           try {
-            log(`✂️ ${key} bölgesi kırpılıyor (görsel ${region.imageIndex + 1})...`);
             croppedRegions[key] = await cropRegion(
               referenceImagesBase64[region.imageIndex],
               { x: region.x, y: region.y, w: region.w, h: region.h }
@@ -379,32 +372,25 @@ export async function runPipeline(
     } catch { /* region detection failed — proceed without crops */ }
   }
 
-  // ── Detail Control Agent: analyze each crop for micro-details ──
-  if (Object.keys(croppedRegions).length > 0) {
-    log(`🎯 ${Object.keys(croppedRegions).length} detay crop'u referans görsellere eklenecek`);
-  }
-
   // Fully sequential — one shot at a time, model gets full attention per shot
   for (const shot of shots) {
     const idx = results.findIndex((r) => r.id === shot.id);
     results[idx].status = "generating";
     updateProgress(shot.group, shot.id);
-    log(`🖼️ [${idx + 1}/${shots.length}] ${shot.label} üretiliyor...`);
 
     try {
       const prompt = shot.promptBuilder(fullGenerationPrompt, fullSignatureDetails, pieceInfo, aspectRatio);
 
-      // Build references: focused crop (if applicable) + all original references
+      // Build references: cropped region (if available) + all original references
       let refs = referenceImagesBase64;
       if (shot.focusRegion && croppedRegions[shot.focusRegion]) {
+        // Prepend the cropped close-up so the model sees it first
         refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
-        log(`   → ${shot.focusRegion} crop'u referansa eklendi`);
       }
 
       const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
       results[idx].imageUrl = imageUrl;
       results[idx].status = "done";
-      log(`✅ ${shot.label} tamamlandı`);
     } catch (err: any) {
       results[idx].status = "error";
       results[idx].error = err.message || "Uretim hatasi";
