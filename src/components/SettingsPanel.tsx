@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import type { AppMode, AngleOption } from "../types";
 import { ASPECT_RATIOS, ANGLE_OPTIONS, INFOGRAPHIC_OPTIONS, PIECE_PRESETS } from "../constants";
+import { setApiKey, getApiKey } from "../services/geminiService";
 
 interface SettingsPanelProps {
   mode: AppMode;
@@ -196,6 +198,112 @@ export function SettingsPanel({
           />
         </div>
       )}
+
+      {/* API Key Management */}
+      <ApiKeySection />
+    </div>
+  );
+}
+
+function ApiKeySection() {
+  const currentKey = getApiKey();
+  const maskedKey = currentKey
+    ? `${"•".repeat(Math.max(0, currentKey.length - 4))}${currentKey.slice(-4)}`
+    : "Ayarlanmamış";
+
+  const [editing, setEditing] = useState(false);
+  const [newKey, setNewKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    const trimmed = newKey.trim();
+    if (!trimmed) return;
+    setApiKey(trimmed);
+    localStorage.setItem("gemini_api_key", trimmed);
+    setEditing(false);
+    setNewKey("");
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="bg-surface rounded-xl border border-border p-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <p className="text-[10px] font-mono text-subtle uppercase tracking-widest">API Anahtarı</p>
+        <a
+          href="https://aistudio.google.com/apikey"
+          target="_blank"
+          rel="noopener"
+          className="text-[10px] font-mono text-accent/70 hover:text-accent transition-colors"
+        >
+          Yeni anahtar al →
+        </a>
+      </div>
+
+      {!editing ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-mono text-muted truncate">
+            {maskedKey}
+          </span>
+          <div className="flex gap-1.5">
+            {saved && (
+              <span className="text-[10px] text-green-500 font-mono self-center">✓ Kaydedildi</span>
+            )}
+            <button
+              onClick={() => setEditing(true)}
+              className="px-3 py-1.5 min-h-[44px] md:min-h-0 rounded-lg text-xs font-medium bg-surface-2 text-muted hover:text-text border border-border transition-all"
+            >
+              Değiştir
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") { setEditing(false); setNewKey(""); } }}
+              placeholder="AIzaSy..."
+              autoComplete="off"
+              autoFocus
+              className="w-full pr-10 px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle font-mono focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-muted transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {showKey
+                  ? <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>
+                  : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+                }
+              </svg>
+            </button>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={handleSave}
+              disabled={!newKey.trim()}
+              className="flex-1 py-2 min-h-[44px] md:min-h-0 rounded-lg text-xs font-semibold bg-accent text-black disabled:bg-accent/30 disabled:cursor-not-allowed transition-all"
+            >
+              Kaydet
+            </button>
+            <button
+              onClick={() => { setEditing(false); setNewKey(""); }}
+              className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-xs font-medium bg-surface-2 text-muted border border-border transition-all"
+            >
+              İptal
+            </button>
+          </div>
+        </div>
+      )}
+      <p className="text-[10px] text-subtle mt-2 font-mono">
+        Anahtar yalnızca tarayıcınızda saklanır · Sunucuya gönderilmez
+      </p>
     </div>
   );
 }
