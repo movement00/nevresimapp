@@ -234,11 +234,16 @@ ARRANGEMENT (organized in clean rows, top to bottom):
 - Fourth row (if 7+ pieces): Pike, runner, or battaniye — laid horizontally, full width visible
 - Fifth row (if 8-9 pieces): Kırlentler — STUFFED, centered
 
+ABSOLUTE RULE — ONLY REFERENCE-VISIBLE DETAILS:
+- ONLY reproduce colors, patterns, embroidery, textures, and edge treatments that are CLEARLY VISIBLE in the reference photos.
+- DO NOT invent, imagine, or add ANY detail that is not visible in the references. If a piece (e.g., flat sheet, back of duvet) is hidden or not clearly shown, render it as PLAIN, SOLID fabric in the SAME base color as the visible product — no added patterns, no added embroidery, no added texture.
+- Every piece must look like it belongs to the SAME set — same base color, same fabric feel.
+- If a decorative detail (embroidery, piping, ruffle) is only visible on SOME pieces in the references, apply it ONLY to those pieces — do NOT spread it to other pieces.
+
 CRITICAL RULES:
 - Show EXACTLY the number of pieces specified in SET CONTENTS — no more, no less
 - ALL pillowcases and cushions must be STUFFED and THREE-DIMENSIONAL — never flat-folded rectangles
 - Generous breathing space between rows — pieces should NOT touch each other
-- Product colors, embroidery patterns, and edge treatments must match the reference images exactly
 - No text, no labels, no watermarks
 - ${ar} aspect ratio.`,
   },
