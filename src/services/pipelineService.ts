@@ -195,7 +195,7 @@ CRITICAL:
 
 PRODUCT DETAILS: ${sig}
 
-SCENE: ONE plump stuffed pillowcase leaning against a headboard or propped up, viewed from the FRONT — camera directly facing the pillow face. The embroidery/pattern is the centerpiece of the shot. Behind the pillow: the rest of the bed (duvet, other pillows) in soft beautiful BOKEH.
+SCENE: ONE plump stuffed RECTANGULAR (horizontal, standard bed pillow shape — NOT a square cushion/kırlent) decorative pillowcase leaning against a headboard or propped up, viewed from the FRONT — camera directly facing the pillow face. The embroidery/pattern is the centerpiece of the shot. Behind the pillow: the rest of the bed (duvet, other pillows) in soft beautiful BOKEH.
 
 BACKGROUND ATMOSPHERE: Soft pastel-toned bedroom — warm sage, dusty rose, muted gold, or soft terracotta tones visible in the blurry background. Choose a pastel that COMPLEMENTS the product color. Pinterest-style warm aesthetic.
 
