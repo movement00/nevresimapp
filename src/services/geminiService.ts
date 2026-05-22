@@ -162,19 +162,19 @@ export const generateImageRaw = async (
   return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
-const SINGLE_PHOTO_ROOM_HINTS = [
-  { room: "modern bedroom with dark charcoal walls and warm wood flooring", decor: "a chunky knit throw on a reading chair, a tall ceramic vase with dried pampas grass, brass bedside lamp with linen shade, and a stack of hardcover books" },
-  { room: "bright Scandinavian bedroom with white walls and light birch floors", decor: "a woven rattan bench at foot of bed, a framed abstract watercolor print, glass pendant bedside light, and a small potted fiddle leaf fig" },
-  { room: "rustic farmhouse bedroom with reclaimed wood accent wall and stone floors", decor: "a tufted velvet accent chair, an arched floor mirror leaning against the wall, a sculptural table lamp, and a woven basket with rolled towels" },
-  { room: "bohemian bedroom with warm terracotta walls and vintage hardwood floors", decor: "a leather butterfly chair in the corner, a gallery wall of small botanical prints, a modern arc floor lamp, and a terracotta planter with trailing ivy" },
-  { room: "minimalist white bedroom with concrete floors and floor-to-ceiling windows", decor: "a sheepskin draped over a wooden stool, a round convex wall mirror, a pair of candlestick holders on the nightstand, and eucalyptus branches in a stone vase" },
-  { room: "coastal bedroom with soft sandy beige walls and whitewashed wood floors", decor: "a linen upholstered bench, a large-scale landscape photograph on the wall, a mushroom table lamp, and a wooden tray with a candle and small succulent" },
-  { room: "mid-century modern bedroom with olive green walls and walnut parquet floors", decor: "a cane-back accent chair, hanging macrame wall art, a black iron bedside sconce, and a ceramic bowl of decorative wooden spheres" },
-  { room: "luxe hotel-style bedroom with soft grey upholstered walls and marble floors", decor: "a boucle ottoman, a minimalist line-art portrait on the wall, a blown glass bedside lamp, and a small stack of magazines with a coffee cup on top" },
-  { room: "Japanese-inspired bedroom with warm wood slat walls and tatami-textured floors", decor: "a mid-century nightstand with tapered legs, an oversized round wall clock, a copper desk lamp, and a small herb plant in a white pot" },
-  { room: "romantic vintage bedroom with soft blush pink walls and herringbone wood floors", decor: "a kilim-patterned area rug, a woven wall hanging, an amber glass carafe on the nightstand, and a vintage wooden ladder used as a blanket rack" },
+const SINGLE_PHOTO_DECOR_SETS = [
+  "a chunky knit throw on a reading chair, a tall ceramic vase with dried pampas grass, brass bedside lamp with linen shade, and a stack of hardcover books",
+  "a woven rattan bench at foot of bed, a framed abstract watercolor print, glass pendant bedside light, and a small potted fiddle leaf fig",
+  "a tufted velvet accent chair, an arched floor mirror leaning against the wall, a sculptural table lamp, and a woven basket with rolled towels",
+  "a leather butterfly chair in the corner, a gallery wall of small botanical prints, a modern arc floor lamp, and a terracotta planter with trailing ivy",
+  "a sheepskin draped over a wooden stool, a round convex wall mirror, a pair of candlestick holders on the nightstand, and eucalyptus branches in a stone vase",
+  "a linen upholstered bench, a large-scale landscape photograph on the wall, a mushroom table lamp, and a wooden tray with a candle and small succulent",
+  "a cane-back accent chair, hanging macrame wall art, a black iron bedside sconce, and a ceramic bowl of decorative wooden spheres",
+  "a boucle ottoman, a minimalist line-art portrait on the wall, a blown glass bedside lamp, and a small stack of magazines with a coffee cup on top",
+  "a mid-century nightstand with tapered legs, an oversized round wall clock, a copper desk lamp, and a small herb plant in a white pot",
+  "a kilim-patterned area rug, a woven wall hanging, an amber glass carafe on the nightstand, and a vintage wooden ladder used as a blanket rack",
 ];
-let singlePhotoHintIndex = Math.floor(Math.random() * SINGLE_PHOTO_ROOM_HINTS.length);
+let singlePhotoDecorIndex = Math.floor(Math.random() * SINGLE_PHOTO_DECOR_SETS.length);
 
 export const generateProfessionalImage = async (
   prompt: string,
@@ -182,8 +182,8 @@ export const generateProfessionalImage = async (
   aspectRatio: string = "1:1"
 ): Promise<string> => {
   const ai = getAiClient();
-  const hint = SINGLE_PHOTO_ROOM_HINTS[singlePhotoHintIndex % SINGLE_PHOTO_ROOM_HINTS.length];
-  singlePhotoHintIndex++;
+  const decor = SINGLE_PHOTO_DECOR_SETS[singlePhotoDecorIndex % SINGLE_PHOTO_DECOR_SETS.length];
+  singlePhotoDecorIndex++;
 
   const parts: any[] = referenceImagesBase64.map((b64) => ({
     inlineData: getInlineData(b64)
@@ -196,8 +196,8 @@ export const generateProfessionalImage = async (
 
     CRITICAL INSTRUCTIONS:
     - DO NOT just return the original image. You must generate a completely new scene and composition.
-    - ROOM SETTING: Place the product in a ${hint.room}. This is a hint for the overall feel — interpret it freely, do not copy any specific reference.
-    - LIFESTYLE DECOR: Enrich the scene with these specific decor elements: ${hint.decor}. Make the space feel inviting and lived-in.
+    - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment. If the product is bedding, generate a completely different, realistic, cozy, and high-end bedroom.
+    - LIFESTYLE DECOR: Enrich the scene with these specific decor elements: ${decor}. Make the space feel inviting and lived-in.
     - STRICTLY NO CGI/RENDER LOOK: The image MUST look like a genuine photograph taken with a DSLR camera. Avoid fantastical backgrounds (e.g., fake forests outside windows). Use believable interior design, natural soft lighting, and realistic textures.
     - COMPOSITION: Optimize the camera angle and product placement specifically for a ${aspectRatio} aspect ratio. Ensure the composition is balanced for these dimensions.
     - PRODUCT ACCURACY: The product in the generated image must look exactly like the product in the reference images (same color, material, precise sewing details, decorative strips, etc.).
