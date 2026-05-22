@@ -162,19 +162,19 @@ export const generateImageRaw = async (
   return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
-const SINGLE_PHOTO_ROOM_STYLES = [
-  "ROOM STYLE: Pinterest Bohemian — white linen upholstered low-platform bed, warm off-white plaster walls with subtle texture, a large circular woven jute mirror above the bed, hanging macrame plant holder with trailing pothos, a worn vintage kilim rug on light oak hardwood floors, rattan peacock chair in the corner, dried pampas grass in a terracotta floor vase, warm golden hour light streaming through sheer linen curtains",
-  "ROOM STYLE: Pinterest Scandinavian Cozy — light birch wood bed frame with rounded edges, pure white walls with one accent wall in soft sage green, a single oversized abstract art print, simple ceramic pendant light, fluffy white sheepskin rug on pale ash floors, a slim wooden stool as nightstand with a single candle and small plant, minimal and airy with lots of negative space",
-  "ROOM STYLE: Pinterest Modern Farmhouse — whitewashed shiplap accent wall behind the bed, wrought iron bed frame with simple lines, warm reclaimed wood nightstand, a galvanized metal wall sconce, woven jute area rug on wide-plank rustic wood floors, a wooden ladder with a draped linen throw, mason jar with wildflowers on the nightstand, soft diffused natural light",
-  "ROOM STYLE: Pinterest Earthy Boho — arched plaster alcove behind the bed (no headboard), terracotta/clay-toned walls, a cluster of dried eucalyptus and banksia in a stoneware vase, floor-level wooden platform bed, Moroccan beni ourain rug on concrete floors, brass hanging pendant lamp, small wooden side table with incense holder and coffee cup, warm afternoon light with deep shadows",
-  "ROOM STYLE: Pinterest Japandi — low walnut platform bed frame, warm white walls with fine vertical wood slat accent panel, a single ikebana arrangement on a floating shelf, washi paper pendant light, tatami-textured rug on light wood floors, minimalist ceramic table lamp on a slim oak nightstand, clean lines and restful symmetry, soft overcast natural light",
-  "ROOM STYLE: Pinterest Coastal Luxe — white linen slipcovered headboard, walls in warm sandy beige, driftwood-framed round mirror, capiz shell chandelier, bleached sisal rug on whitewashed wood floors, rattan side table with coral sculpture and a stack of coffee table books, sheer billowing curtains with ocean-light feel, bright airy atmosphere",
-  "ROOM STYLE: Pinterest Dark Moody — deep charcoal/forest green walls, tufted velvet headboard in dusty rose or olive, antique brass wall sconces, a vintage oil painting in ornate frame, plush Persian-style rug on dark hardwood floors, marble-topped nightstand with a whiskey-colored glass vase of dried botanicals, dramatic low-key lighting with a single warm lamp",
-  "ROOM STYLE: Pinterest Desert Modern — adobe-textured warm sand walls, simple black metal bed frame, a large potted cactus or fiddle leaf fig, handwoven textile wall hanging in earthy tones, cream and rust Moroccan pouf, terracotta tile floors with a natural fiber rug, wooden bead chandelier, golden desert sunset light through a large window",
-  "ROOM STYLE: Pinterest French Countryside — ornate but weathered white-painted wooden headboard, soft lavender-gray walls, a vintage oval mirror with distressed gilded frame, crystal droplet bedside lamp, faded floral area rug on herringbone parquet floors, a small bouquet of fresh peonies in a ceramic pitcher, wrought iron window frame with morning light",
-  "ROOM STYLE: Pinterest Tropical Resort — four-poster bed in natural teak wood (no canopy), white lime-washed walls, ceiling fan with rattan blades, large banana leaf plant in a woven basket planter, handwoven seagrass rug on polished concrete floors, bamboo bedside table with coconut candle and tropical flowers, louvered shutters filtering warm sunlight",
+const SINGLE_PHOTO_DECOR_SETS = [
+  "a chunky knit throw on a reading chair, a tall ceramic vase with dried pampas grass, brass bedside lamp with linen shade, and a stack of hardcover books",
+  "a woven rattan bench at foot of bed, a framed abstract watercolor print, glass pendant bedside light, and a small potted fiddle leaf fig",
+  "a tufted velvet accent chair, an arched floor mirror leaning against the wall, a sculptural table lamp, and a woven basket with rolled towels",
+  "a leather butterfly chair in the corner, a gallery wall of small botanical prints, a modern arc floor lamp, and a terracotta planter with trailing ivy",
+  "a sheepskin draped over a wooden stool, a round convex wall mirror, a pair of candlestick holders on the nightstand, and eucalyptus branches in a stone vase",
+  "a linen upholstered bench, a large-scale landscape photograph on the wall, a mushroom table lamp, and a wooden tray with a candle and small succulent",
+  "a cane-back accent chair, hanging macrame wall art, a black iron bedside sconce, and a ceramic bowl of decorative wooden spheres",
+  "a boucle ottoman, a minimalist line-art portrait on the wall, a blown glass bedside lamp, and a small stack of magazines with a coffee cup on top",
+  "a mid-century nightstand with tapered legs, an oversized round wall clock, a copper desk lamp, and a small herb plant in a white pot",
+  "a kilim-patterned area rug, a woven wall hanging, an amber glass carafe on the nightstand, and a vintage wooden ladder used as a blanket rack",
 ];
-let singlePhotoRoomIndex = Math.floor(Math.random() * SINGLE_PHOTO_ROOM_STYLES.length);
+let singlePhotoDecorIndex = Math.floor(Math.random() * SINGLE_PHOTO_DECOR_SETS.length);
 
 export const generateProfessionalImage = async (
   prompt: string,
@@ -182,8 +182,8 @@ export const generateProfessionalImage = async (
   aspectRatio: string = "1:1"
 ): Promise<string> => {
   const ai = getAiClient();
-  const roomStyle = SINGLE_PHOTO_ROOM_STYLES[singlePhotoRoomIndex % SINGLE_PHOTO_ROOM_STYLES.length];
-  singlePhotoRoomIndex++;
+  const decor = SINGLE_PHOTO_DECOR_SETS[singlePhotoDecorIndex % SINGLE_PHOTO_DECOR_SETS.length];
+  singlePhotoDecorIndex++;
 
   const parts: any[] = referenceImagesBase64.map((b64) => ({
     inlineData: getInlineData(b64)
@@ -196,8 +196,8 @@ export const generateProfessionalImage = async (
 
     CRITICAL INSTRUCTIONS:
     - DO NOT just return the original image. You must generate a completely new scene and composition.
-    - ${roomStyle}
-    - IMPORTANT: Do NOT copy the room, headboard, walls, or furniture from the reference photos. The reference photos are ONLY for the textile product details. You MUST create the room described in ROOM STYLE above — different headboard, different walls, different flooring, different furniture.
+    - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment. If the product is bedding, generate a completely different, realistic, cozy, and high-end bedroom.
+    - LIFESTYLE DECOR: Enrich the scene with these specific decor elements: ${decor}. Make the space feel inviting and lived-in.
     - STRICTLY NO CGI/RENDER LOOK: The image MUST look like a genuine photograph taken with a DSLR camera. Avoid fantastical backgrounds (e.g., fake forests outside windows). Use believable interior design, natural soft lighting, and realistic textures.
     - COMPOSITION: Optimize the camera angle and product placement specifically for a ${aspectRatio} aspect ratio. Ensure the composition is balanced for these dimensions.
     - PRODUCT ACCURACY: The product in the generated image must look exactly like the product in the reference images (same color, material, precise sewing details, decorative strips, etc.).
