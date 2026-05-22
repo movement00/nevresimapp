@@ -122,15 +122,19 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
 PRODUCT DETAILS: ${sig}
 
 The bed looks like someone just woke up — artfully rumpled, Instagram-worthy:
-- Duvet casually pulled to one side, exposing the sheet beneath
+- Duvet casually pulled to one side with gentle folds
 - Pillows at casual angles, slightly overlapping
-- Soft natural wrinkles in the sheet
+- Soft natural fabric draping
 
 NOT dirty or chaotic — elegantly lived-in, warm morning feel.
 Bedroom edges visible: nightstand with coffee cup, rug edge.
 Even warm overhead light.
 
-CRITICAL: The duvet, pillows, and all textile products must show the EXACT same colors, embroidery patterns, and fabric as the reference images. If the back side of the duvet is not visible in the reference photos, assume it is the SAME fabric and color as the front — do NOT invent a different back side color or material.`
+ABSOLUTE RULE — ONLY REFERENCE-VISIBLE DETAILS:
+- ONLY reproduce colors, patterns, embroidery, textures, and edge treatments that are CLEARLY VISIBLE in the reference photos.
+- DO NOT invent, imagine, or add ANY detail not visible in the references. If a piece (e.g., flat sheet, back of duvet) is hidden or not clearly shown, render it as PLAIN, SOLID fabric in the SAME base color as the visible product — no added patterns, no added embroidery, no added texture.
+- If a decorative detail (embroidery, piping, ruffle) is only visible on SOME pieces in the references, apply it ONLY to those pieces — do NOT spread it to other pieces.
+- The duvet, pillows, and all textile products must show the EXACT same colors, embroidery patterns, and fabric as the reference images.`
     ),
   },
 
