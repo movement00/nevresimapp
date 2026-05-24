@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { ProductAnalysis } from "../types";
+import type { ProductAnalysis, StructuredSignatureDetails } from "../types";
 
 interface AnalysisCardProps {
   analysis: ProductAnalysis;
@@ -33,8 +33,26 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
         </div>
 
         <div>
-          <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-1">İmza Detayları</p>
-          <p className="text-xs text-muted leading-relaxed">{analysis.signatureDetails}</p>
+          <p className="text-[10px] font-mono text-subtle uppercase tracking-widest mb-1">
+            İmza Detayları ({analysis.signatureDetails.pieces.length} parça)
+          </p>
+          <div className="space-y-1.5">
+            {analysis.signatureDetails.pieces.map((piece, i) => (
+              <div key={i} className="text-xs text-muted leading-relaxed">
+                <span className="font-medium text-text">{piece.name}</span>
+                <span className="text-subtle"> — {piece.baseColor}</span>
+                {piece.hasEmbroidery && (
+                  <span className="text-success"> • {piece.embroideryMotif} ({piece.embroideryColor})</span>
+                )}
+                {piece.edgeTreatmentType && piece.edgeTreatmentType !== "simple hem" && (
+                  <span className="text-info"> • {piece.edgeTreatmentType}</span>
+                )}
+              </div>
+            ))}
+            <p className="text-[10px] text-subtle mt-1">
+              {analysis.signatureDetails.fabricSurface} • {analysis.signatureDetails.overallStyle}
+            </p>
+          </div>
         </div>
 
         <div>

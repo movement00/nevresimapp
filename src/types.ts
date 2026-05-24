@@ -1,9 +1,26 @@
+export interface StructuredPiece {
+  name: string;
+  baseColor: string;
+  hasEmbroidery: boolean;
+  embroideryMotif: string;
+  embroideryColor: string;
+  embroideryPosition: string;
+  edgeTreatmentType: string;
+  edgeTreatmentColor: string;
+}
+
+export interface StructuredSignatureDetails {
+  pieces: StructuredPiece[];
+  fabricSurface: string;
+  overallStyle: string;
+}
+
 export interface ProductAnalysis {
   productCategory: string;
   marketingDescription: string;
   generationPrompt: string;
   suggestedTitle: string;
-  signatureDetails: string;
+  signatureDetails: StructuredSignatureDetails;
 }
 
 export interface InfographicAnalysis {
@@ -38,7 +55,7 @@ export interface UploadedFile {
 }
 
 export type AppMode = 'pipeline' | 'photography' | 'infographic' | 'box-content' | 'angles' | 'social-media' | 'seo-content';
-export type ProcessStep = 'idle' | 'analyzing' | 'selection' | 'generating' | 'done' | 'error' | 'pipeline-running' | 'pipeline-done' | 'social-media-running' | 'social-media-done';
+export type ProcessStep = 'idle' | 'analyzing' | 'selection' | 'generating' | 'done' | 'error' | 'pipeline-running' | 'pipeline-hero-review' | 'pipeline-done' | 'social-media-running' | 'social-media-done';
 
 export interface AngleOption {
   id: string;

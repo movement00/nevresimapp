@@ -4,7 +4,7 @@ import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAn
 import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
 import { setApiKey } from "./services/geminiService";
 import * as api from "./services/geminiService";
-import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
+import { PIPELINE_SHOTS, runPipeline, formatSignatureDetails } from "./services/pipelineService";
 import type { PipelineProgress, PipelineResult as PipelineResultType } from "./services/pipelineService";
 import { SOCIAL_MEDIA_SHOTS, runSocialMediaPipeline } from "./services/socialMediaService";
 import type { SocialMediaProgress, SocialMediaResult as SocialMediaResultType } from "./services/socialMediaService";
@@ -157,7 +157,7 @@ function App() {
       const results = await runSocialMediaPipeline(
         allRefs,
         currentAnalysis.generationPrompt,
-        currentAnalysis.signatureDetails,
+        formatSignatureDetails(currentAnalysis.signatureDetails),
         productName,
         smBrandName,
         Array.from(smEnabledShots),
@@ -274,17 +274,73 @@ function App() {
       ].filter(Boolean).join("\n");
       const analysisResult = await api.analyzeProductPhotos(b64List, ctx || undefined);
       setAnalysis(analysisResult);
-      setStatus("pipeline-running");
+
+      // Progressive pipeline: generate hero first, pause for review
+      if (pipelineEnabledShots.has("hero_editorial")) {
+        setStatus("pipeline-running");
+        const heroResults = await runPipeline(
+          b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
+          ["hero_editorial"], pipelineUserNotes, pieceInfo,
+          (progress) => setPipelineProgress({ ...progress })
+        );
+        setPipelineResults(heroResults);
+        setGeneratedImage(heroResults[0]?.imageUrl ?? null);
+        setStatus("pipeline-hero-review");
+      } else {
+        // No hero selected — run all enabled shots directly
+        setStatus("pipeline-running");
+        const results = await runPipeline(
+          b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
+          Array.from(pipelineEnabledShots), pipelineUserNotes, pieceInfo,
+          (progress) => setPipelineProgress({ ...progress })
+        );
+        setPipelineResults(results);
+        setStatus("pipeline-done");
+        if (autoSocialMedia) { setTimeout(() => generateSeoCard(), 500); }
+      }
+    } catch (err: any) { handleError(err); }
+  };
+
+  const approveHeroAndContinue = async () => {
+    if (!analysis || files.length === 0) return;
+    const heroImage = pipelineResults.find(r => r.id === "hero_editorial")?.imageUrl;
+    if (!heroImage) return;
+    setStatus("pipeline-running"); setErrorMessage("");
+    const b64List = files.map(f => f.base64);
+    const allReferences = [...b64List, heroImage];
+    try {
+      const enabledIds = Array.from(pipelineEnabledShots).filter(id => id !== "hero_editorial");
+      if (enabledIds.length === 0) {
+        setStatus("pipeline-done");
+        return;
+      }
+      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
       const results = await runPipeline(
-        b64List, analysisResult.generationPrompt, analysisResult.signatureDetails, aspectRatio,
-        Array.from(pipelineEnabledShots), pipelineUserNotes, pieceInfo,
+        allReferences, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
+        enabledIds, pipelineUserNotes, pieceInfo,
         (progress) => setPipelineProgress({ ...progress })
       );
-      setPipelineResults(results);
+      const heroResult = pipelineResults.find(r => r.id === "hero_editorial")!;
+      setPipelineResults([heroResult, ...results]);
       setStatus("pipeline-done");
-      if (autoSocialMedia) {
-        setTimeout(() => generateSeoCard(), 500);
-      }
+      if (autoSocialMedia) { setTimeout(() => generateSeoCard(), 500); }
+    } catch (err: any) { handleError(err); }
+  };
+
+  const retryHero = async () => {
+    if (!analysis || files.length === 0) return;
+    setStatus("pipeline-running"); setErrorMessage("");
+    const b64List = files.map(f => f.base64);
+    try {
+      const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
+      const heroResults = await runPipeline(
+        b64List, analysis.generationPrompt, analysis.signatureDetails, aspectRatio,
+        ["hero_editorial"], pipelineUserNotes, pieceInfo,
+        (progress) => setPipelineProgress({ ...progress })
+      );
+      setPipelineResults(heroResults);
+      setGeneratedImage(heroResults[0]?.imageUrl ?? null);
+      setStatus("pipeline-hero-review");
     } catch (err: any) { handleError(err); }
   };
 
@@ -321,21 +377,35 @@ function App() {
     if (!shot || !analysis) return;
     const b64List = files.map(f => f.base64);
 
-    // Mark as generating — functional update to avoid stale closure
+    // Capture previous QA issues before overwriting the result
+    const prevResult = pipelineResults.find(r => r.id === shotId);
+    const prevIssues = prevResult?.qaIssues ?? [];
+
     setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const, error: undefined } : r));
 
     try {
       const userCtx = pipelineUserNotes ? `\n\nADDITIONAL USER NOTES: ${pipelineUserNotes}` : "";
+      const sigText = formatSignatureDetails(analysis.signatureDetails) + userCtx;
       const pieceInfo = PIECE_PRESETS.find(p => p.count === pipelinePieceCount)?.pieces ?? "";
-      const prompt = shot.promptBuilder(
+      let prompt = shot.promptBuilder(
         analysis.generationPrompt + userCtx,
-        analysis.signatureDetails + userCtx,
+        sigText,
         pieceInfo,
         aspectRatio
       );
+
+      if (prevIssues.length > 0) {
+        prompt = `RETRY — PREVIOUS ATTEMPT HAD THESE ISSUES (you MUST fix them):\n${prevIssues.map(i => `- ${i}`).join('\n')}\n\n${prompt}`;
+      }
+
       const allRefs = generatedImage ? [...b64List, generatedImage] : b64List;
       const imageUrl = await api.generateImageRaw(prompt, allRefs, aspectRatio, shot.textFirst);
-      setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
+
+      const qa = await api.verifyGeneratedImage(imageUrl, b64List, sigText, shot.label);
+      setPipelineResults(prev => prev.map(r => r.id === shotId
+        ? { ...r, imageUrl, status: "done" as const, qaScore: qa.score, qaIssues: qa.issues }
+        : r
+      ));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
     }
@@ -606,6 +676,18 @@ function App() {
         {status === "pipeline-running" && pipelineProgress && (
           <PipelineProgressView key="progress" progress={pipelineProgress} />
         )}
+        {status === "pipeline-hero-review" && pipelineResults.length > 0 && pipelineResults[0]?.imageUrl && (
+          <motion.div key="hero-review" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <h3 className="text-lg font-semibold text-center">Hero Shot — Onay Bekliyor</h3>
+            <p className="text-sm text-gray-500 text-center">Hero shot'ı inceleyin. Onaylarsanız kalan {pipelineEnabledShots.size - 1} görsel üretilecek.</p>
+            <img src={pipelineResults[0].imageUrl!} alt="Hero" className="w-full max-w-lg mx-auto rounded-xl shadow-lg" />
+            <div className="flex gap-3 justify-center">
+              <button onClick={approveHeroAndContinue} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Onayla & Devam Et</button>
+              <button onClick={retryHero} className="px-6 py-2.5 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors">Tekrar Üret</button>
+              <button onClick={reset} className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors">İptal</button>
+            </div>
+          </motion.div>
+        )}
         {status === "pipeline-done" && pipelineResults.length > 0 && (
           <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />
         )}
@@ -744,7 +826,7 @@ function App() {
                     : `Pipeline Başlat  ·  ${pipelineEnabledShots.size} görsel`}
                 </button>
               )}
-              {analysis && (status === "pipeline-running" || status === "pipeline-done") && (
+              {analysis && (status === "pipeline-running" || status === "pipeline-hero-review" || status === "pipeline-done") && (
                 <AnalysisCard analysis={analysis} />
               )}
             </div>
@@ -757,6 +839,18 @@ function App() {
                 )}
                 {status === "pipeline-running" && pipelineProgress && (
                   <PipelineProgressView key="progress" progress={pipelineProgress} />
+                )}
+                {status === "pipeline-hero-review" && pipelineResults.length > 0 && pipelineResults[0]?.imageUrl && (
+                  <motion.div key="hero-review-desktop" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                    <h3 className="text-lg font-semibold text-center">Hero Shot — Onay Bekliyor</h3>
+                    <p className="text-sm text-gray-500 text-center">Hero shot'ı inceleyin. Onaylarsanız kalan {pipelineEnabledShots.size - 1} görsel üretilecek.</p>
+                    <img src={pipelineResults[0].imageUrl!} alt="Hero" className="w-full max-w-lg mx-auto rounded-xl shadow-lg" />
+                    <div className="flex gap-3 justify-center">
+                      <button onClick={approveHeroAndContinue} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Onayla & Devam Et</button>
+                      <button onClick={retryHero} className="px-6 py-2.5 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors">Tekrar Üret</button>
+                      <button onClick={reset} className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors">İptal</button>
+                    </div>
+                  </motion.div>
                 )}
                 {status === "pipeline-done" && pipelineResults.length > 0 && (
                   <PipelineResults key="results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />
@@ -1016,6 +1110,18 @@ function App() {
                 {status === "error" && <ErrorState key="error" />}
                 {status === "pipeline-running" && pipelineProgress && (
                   <PipelineProgressView key="pipeline-progress" progress={pipelineProgress} />
+                )}
+                {status === "pipeline-hero-review" && pipelineResults.length > 0 && pipelineResults[0]?.imageUrl && (
+                  <motion.div key="hero-review-single" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                    <h3 className="text-lg font-semibold text-center">Hero Shot — Onay Bekliyor</h3>
+                    <p className="text-sm text-gray-500 text-center">Hero shot'ı inceleyin. Onaylarsanız kalan {pipelineEnabledShots.size - 1} görsel üretilecek.</p>
+                    <img src={pipelineResults[0].imageUrl!} alt="Hero" className="w-full max-w-lg mx-auto rounded-xl shadow-lg" />
+                    <div className="flex gap-3 justify-center">
+                      <button onClick={approveHeroAndContinue} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors">Onayla & Devam Et</button>
+                      <button onClick={retryHero} className="px-6 py-2.5 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors">Tekrar Üret</button>
+                      <button onClick={reset} className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors">İptal</button>
+                    </div>
+                  </motion.div>
                 )}
                 {status === "pipeline-done" && pipelineResults.length > 0 && (
                   <PipelineResults key="pipeline-results" results={pipelineResults} onReset={reset} onRetryShot={retryPipelineShot} onReviseShot={revisePipelineShot} onStartSocialMedia={() => generateSeoCard()} />

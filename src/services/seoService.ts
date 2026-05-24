@@ -2,6 +2,7 @@
 import { getApiKey } from "./geminiService";
 import { GoogleGenAI } from "@google/genai";
 import type { ProductAnalysis } from "../types";
+import { formatSignatureDetails } from "./pipelineService";
 
 export interface SeoProductData {
   seoTitle: string;
@@ -26,7 +27,7 @@ export async function generateSeoTexts(
 ÜRÜN ANALİZİ:
 - Önerilen Başlık: ${analysis.suggestedTitle}
 - Kategori: ${analysis.productCategory}
-- Özellikler: ${analysis.signatureDetails}
+- Özellikler: ${formatSignatureDetails(analysis.signatureDetails)}
 - Pazarlama Açıklaması: ${analysis.marketingDescription}
 - Parça Bilgisi: ${pieceInfo}
 ${userNotes ? `- Kullanıcı Notları: ${userNotes}` : ""}
