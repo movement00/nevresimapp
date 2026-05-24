@@ -51,11 +51,13 @@ function nextDecorSet(): string {
 }
 
 // Group A — oda sahneleri: generationPrompt (ürün + oda atmosferi) kullanır
-const BASE_INSTRUCTIONS = (prompt: string, ar: string, angleInstructions: string) => {
+const BASE_INSTRUCTIONS = (prompt: string, sig: string, ar: string, angleInstructions: string) => {
   const decor = nextDecorSet();
   return `Generate a completely new, high-end professional product photograph based on the reference images provided.
 
     PROMPT: ${prompt}
+
+    PRODUCT DETAILS (must match EXACTLY): ${sig}
 
     CAMERA ANGLE & SCENE: ${angleInstructions}
 
@@ -83,7 +85,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Ana ürün fotoğrafı — 3/4 açı, editorial çekim",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, _sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
+    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
       `Editorial 3/4 view from the foot of the bed, ~35° elevation. Full bed with headboard visible. This is the HERO e-commerce listing image.`
     ),
   },
@@ -94,7 +96,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Sıcak sabah ışığında yakın çekim",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, _sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
+    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
       `Camera approximately 1 meter from the bed surface, looking down at ~45°. Show ONLY the upper portion: turned-back duvet revealing the sheet, 1-2 pillows against the headboard. Warm golden morning window light (~4200K). Shallow depth of field. The background bedroom is soft bokeh. NOT a full room view — a CLOSE lifestyle detail.`
     ),
   },
@@ -105,7 +107,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Heybetli alçak açı çekim",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, _sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
+    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
       `Low angle shot. Camera at the foot of the bed, near floor level, looking UP toward the headboard. The duvet edge cascading over the foot is the closest element. Dramatic yet natural lighting.`
     ),
   },
@@ -116,7 +118,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Üstten bakış, yaşanmış yatak görünümü",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
+    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
       `Perfectly overhead bird's-eye view looking straight down at the bed.
 
 PRODUCT DETAILS: ${sig}
