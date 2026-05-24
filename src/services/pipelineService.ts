@@ -1,6 +1,5 @@
-import { generateImageRaw, detectProductRegions, verifyGeneratedImage } from "./geminiService";
+import { generateImageRaw, detectProductRegions } from "./geminiService";
 import { cropRegion } from "../lib/cropRegion";
-import type { StructuredSignatureDetails } from "../types";
 
 export interface PipelineShot {
   id: string;
@@ -20,9 +19,6 @@ export interface PipelineResult {
   imageUrl: string | null;
   status: "pending" | "generating" | "done" | "error";
   error?: string;
-  qaScore?: number;
-  qaIssues?: string[];
-  attempts?: number;
 }
 
 export interface PipelineProgress {
@@ -54,54 +50,12 @@ function nextDecorSet(): string {
   return set;
 }
 
-export function formatSignatureDetails(details: StructuredSignatureDetails): string {
-  const lines: string[] = [];
-  lines.push(`FABRIC SURFACE: ${details.fabricSurface}`);
-  lines.push(`OVERALL STYLE: ${details.overallStyle}`);
-  lines.push(`PIECES (${details.pieces.length} total):`);
-  for (const piece of details.pieces) {
-    let desc = `  - ${piece.name}: base color = ${piece.baseColor}`;
-    if (piece.hasEmbroidery) {
-      desc += ` | EMBROIDERY: ${piece.embroideryMotif} in ${piece.embroideryColor} at ${piece.embroideryPosition}`;
-    } else {
-      desc += ` | no embroidery`;
-    }
-    if (piece.edgeTreatmentType && piece.edgeTreatmentType !== 'simple hem') {
-      desc += ` | EDGE: ${piece.edgeTreatmentType} in ${piece.edgeTreatmentColor}`;
-    } else {
-      desc += ` | edge: ${piece.edgeTreatmentType || 'simple hem'}`;
-    }
-    lines.push(desc);
-  }
-  return lines.join('\n');
-}
-
-// Common hallucination prevention rules — injected into every shot
-const NEGATIVE_RULES = `
-COMMON MISTAKES TO AVOID:
-- DO NOT add embroidery to pieces that don't have embroidery in the reference photos.
-- DO NOT change the duvet back side color — keep it the SAME as the front.
-- DO NOT add patterns to plain/solid pieces.
-- DO NOT change the embroidery motif shape, color, or position.
-- DO NOT add extra decorative pillows, cushions, throws, or runners not in the references.
-- DO NOT change the edge treatment type (piping ≠ decorative strip ≠ bias tape).
-- DO NOT spread a decorative detail from one piece to other pieces that don't have it.`;
-
-const ABSOLUTE_RULE = `
-ABSOLUTE RULE — ONLY REFERENCE-VISIBLE DETAILS:
-- ONLY reproduce colors, patterns, embroidery, textures, and edge treatments that are CLEARLY VISIBLE in the reference photos.
-- DO NOT invent, imagine, or add ANY detail not visible in the references. If a piece (e.g., flat sheet, back of duvet) is hidden or not clearly shown, render it as PLAIN, SOLID fabric in the SAME base color as the visible product — no added patterns, no added embroidery, no added texture.
-- If a decorative detail (embroidery, piping, ruffle) is only visible on SOME pieces in the references, apply it ONLY to those pieces — do NOT spread it to other pieces.
-- The duvet, pillows, and all textile products must show the EXACT same colors, embroidery patterns, and fabric as the reference images.`;
-
-// Group A — oda sahneleri: generationPrompt (ürün + oda atmosferi) + signatureDetails kullanır
-const BASE_INSTRUCTIONS = (prompt: string, signatureDetails: string, ar: string, angleInstructions: string) => {
+// Group A — oda sahneleri: generationPrompt (ürün + oda atmosferi) kullanır
+const BASE_INSTRUCTIONS = (prompt: string, ar: string, angleInstructions: string) => {
   const decor = nextDecorSet();
   return `Generate a completely new, high-end professional product photograph based on the reference images provided.
 
     PROMPT: ${prompt}
-
-    PRODUCT DETAILS (must match EXACTLY): ${signatureDetails}
 
     CAMERA ANGLE & SCENE: ${angleInstructions}
 
@@ -117,9 +71,7 @@ const BASE_INSTRUCTIONS = (prompt: string, signatureDetails: string, ar: string,
     - NO PEOPLE: Do NOT include any humans, persons, figures, or body parts in the image. The scene must be completely empty of people.
     - NO EXTRA PRODUCTS: Do NOT add any textile products that are not in the reference images. No extra runners, throws, blankets, decorative pillows, cushions, or any additional bedding items beyond what is shown in the references. The bed must only contain the exact product set from the reference images.
     - DUVET BACK SIDE: If the back/reverse side of the duvet is NOT visible in the reference photos, assume it is the SAME fabric and color as the front side. Do NOT invent a different color or material for the unseen back side.
-    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.
-    ${NEGATIVE_RULES}
-    ${ABSOLUTE_RULE}`;
+    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.`;
 }
 
 export const PIPELINE_SHOTS: PipelineShot[] = [
@@ -131,7 +83,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Ana ürün fotoğrafı — 3/4 açı, editorial çekim",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
+    promptBuilder: (gp, _sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
       `Editorial 3/4 view from the foot of the bed, ~35° elevation. Full bed with headboard visible. This is the HERO e-commerce listing image.`
     ),
   },
@@ -142,7 +94,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Sıcak sabah ışığında yakın çekim",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
+    promptBuilder: (gp, _sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
       `Camera approximately 1 meter from the bed surface, looking down at ~45°. Show ONLY the upper portion: turned-back duvet revealing the sheet, 1-2 pillows against the headboard. Warm golden morning window light (~4200K). Shallow depth of field. The background bedroom is soft bokeh. NOT a full room view — a CLOSE lifestyle detail.`
     ),
   },
@@ -153,7 +105,7 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Heybetli alçak açı çekim",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
+    promptBuilder: (gp, _sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
       `Low angle shot. Camera at the foot of the bed, near floor level, looking UP toward the headboard. The duvet edge cascading over the foot is the closest element. Dramatic yet natural lighting.`
     ),
   },
@@ -164,8 +116,10 @@ export const PIPELINE_SHOTS: PipelineShot[] = [
     description: "Üstten bakış, yaşanmış yatak görünümü",
     textFirst: false,
     enabled: true,
-    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, sig, ar,
+    promptBuilder: (gp, sig, _pi, ar) => BASE_INSTRUCTIONS(gp, ar,
       `Perfectly overhead bird's-eye view looking straight down at the bed.
+
+PRODUCT DETAILS: ${sig}
 
 The bed looks like someone just woke up — artfully rumpled, Instagram-worthy:
 - Duvet casually pulled to one side with gentle folds
@@ -174,7 +128,13 @@ The bed looks like someone just woke up — artfully rumpled, Instagram-worthy:
 
 NOT dirty or chaotic — elegantly lived-in, warm morning feel.
 Bedroom edges visible: nightstand with coffee cup, rug edge.
-Even warm overhead light.`
+Even warm overhead light.
+
+ABSOLUTE RULE — ONLY REFERENCE-VISIBLE DETAILS:
+- ONLY reproduce colors, patterns, embroidery, textures, and edge treatments that are CLEARLY VISIBLE in the reference photos.
+- DO NOT invent, imagine, or add ANY detail not visible in the references. If a piece (e.g., flat sheet, back of duvet) is hidden or not clearly shown, render it as PLAIN, SOLID fabric in the SAME base color as the visible product — no added patterns, no added embroidery, no added texture.
+- If a decorative detail (embroidery, piping, ruffle) is only visible on SOME pieces in the references, apply it ONLY to those pieces — do NOT spread it to other pieces.
+- The duvet, pillows, and all textile products must show the EXACT same colors, embroidery patterns, and fabric as the reference images.`
     ),
   },
 
@@ -200,9 +160,7 @@ DEPTH: Shallow — tack sharp at the center fading to creamy bokeh at edges.
 CRITICAL:
 - No bed, no room, no background — ONLY the fabric surface up close.
 - The embroidery/texture must match the reference images EXACTLY — same pattern, same position, same colors. Do NOT invent patterns.
-- ${ar} aspect ratio.
-${NEGATIVE_RULES}
-${ABSOLUTE_RULE}`,
+- ${ar} aspect ratio.`,
   },
   {
     id: "edge_corner_detail",
@@ -222,9 +180,7 @@ Show ONLY the corner or edge area where the stitching, piping, bias tape, or dec
 CRITICAL:
 - No bed, no room — only the edge detail.
 - Edge treatment must match references exactly — same type (piping/bias tape/decorative strip/hem), same color.
-- ${ar} aspect ratio.
-${NEGATIVE_RULES}
-${ABSOLUTE_RULE}`,
+- ${ar} aspect ratio.`,
   },
   {
     id: "pillow_closeup",
@@ -248,9 +204,7 @@ CAMERA: Straight-on frontal view at pillow height (~40-50° elevation from bed s
 CRITICAL:
 - Embroidery/pattern on the pillowcase must be TACK SHARP and clearly visible.
 - Product must match references exactly — same embroidery, same edge treatment, same fabric color.
-- ${ar} aspect ratio.
-${NEGATIVE_RULES}
-${ABSOLUTE_RULE}`,
+- ${ar} aspect ratio.`,
   },
 
   // ═══ GROUP C: Layout & Marketing — signatureDetails + pieceInfo kullanır ═══
@@ -284,8 +238,11 @@ ARRANGEMENT (organized in clean rows, top to bottom):
 - Fourth row (if 7+ pieces): Pike, runner, or battaniye — laid horizontally, full width visible
 - Fifth row (if 8-9 pieces): Kırlentler — STUFFED, centered
 
-${ABSOLUTE_RULE}
-${NEGATIVE_RULES}
+ABSOLUTE RULE — ONLY REFERENCE-VISIBLE DETAILS:
+- ONLY reproduce colors, patterns, embroidery, textures, and edge treatments that are CLEARLY VISIBLE in the reference photos.
+- DO NOT invent, imagine, or add ANY detail that is not visible in the references. If a piece (e.g., flat sheet, back of duvet) is hidden or not clearly shown, render it as PLAIN, SOLID fabric in the SAME base color as the visible product — no added patterns, no added embroidery, no added texture.
+- Every piece must look like it belongs to the SAME set — same base color, same fabric feel.
+- If a decorative detail (embroidery, piping, ruffle) is only visible on SOME pieces in the references, apply it ONLY to those pieces — do NOT spread it to other pieces.
 
 CRITICAL RULES:
 - Show EXACTLY the number of pieces specified in SET CONTENTS — no more, no less
@@ -331,9 +288,7 @@ Badge text suggestions (ALL IN TURKISH — choose what fits this product):
 CRITICAL:
 - Product must match reference images exactly.
 - ALL text must be in TURKISH with correct characters (ş, ğ, ü, ö, ç, ı, İ).
-- ${ar} aspect ratio.
-${NEGATIVE_RULES}
-${ABSOLUTE_RULE}`,
+- ${ar} aspect ratio.`,
   },
   {
     id: "color_texture_ref",
@@ -363,9 +318,7 @@ CRITICAL:
 - This is NOT a flat swatch on white. It's an AESTHETIC lifestyle detail shot showing fabric quality and embroidery craftsmanship.
 - Product colors, embroidery, and edge treatments must match references exactly.
 - No text, no watermarks.
-- ${ar} aspect ratio.
-${NEGATIVE_RULES}
-${ABSOLUTE_RULE}`,
+- ${ar} aspect ratio.`,
   },
 ];
 
@@ -374,7 +327,7 @@ export type PipelineCallback = (progress: PipelineProgress) => void;
 export async function runPipeline(
   referenceImagesBase64: string[],
   generationPrompt: string,
-  signatureDetails: StructuredSignatureDetails,
+  signatureDetails: string,
   aspectRatio: string,
   enabledShotIds: string[],
   userNotes: string,
@@ -404,7 +357,7 @@ export async function runPipeline(
     ? `\n\nCONTEXT FROM USER (for accuracy only, do NOT render as text): ${userNotes}`
     : "";
   const fullGenerationPrompt = generationPrompt + userContext;
-  const fullSignatureDetails = formatSignatureDetails(signatureDetails) + userContext;
+  const fullSignatureDetails = signatureDetails + userContext;
 
   // ── Region detection: crop pillow/embroidery/edge from reference photos ──
   // This runs once before the pipeline starts. Cropped regions are prepended
@@ -428,71 +381,28 @@ export async function runPipeline(
     } catch { /* region detection failed — proceed without crops */ }
   }
 
-  const MAX_QA_RETRIES = 2;
-
   // Fully sequential — one shot at a time, model gets full attention per shot
   for (const shot of shots) {
     const idx = results.findIndex((r) => r.id === shot.id);
     results[idx].status = "generating";
     updateProgress(shot.group, shot.id);
 
-    let refs = referenceImagesBase64;
-    if (shot.focusRegion && croppedRegions[shot.focusRegion]) {
-      refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
-    }
+    try {
+      const prompt = shot.promptBuilder(fullGenerationPrompt, fullSignatureDetails, pieceInfo, aspectRatio);
 
-    let bestImage: string | null = null;
-    let bestScore = 0;
-    let lastIssues: string[] = [];
-    let attempts = 0;
-
-    for (let attempt = 0; attempt <= MAX_QA_RETRIES; attempt++) {
-      attempts = attempt + 1;
-      try {
-        let prompt = shot.promptBuilder(fullGenerationPrompt, fullSignatureDetails, pieceInfo, aspectRatio);
-
-        // On retry, prepend previous issues so the model avoids repeating them
-        if (attempt > 0 && lastIssues.length > 0) {
-          prompt = `PREVIOUS ATTEMPT FAILED QA. Fix these specific issues:\n${lastIssues.map(i => `- ${i}`).join('\n')}\n\n${prompt}`;
-        }
-
-        const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
-
-        // QA verification
-        const qa = await verifyGeneratedImage(imageUrl, referenceImagesBase64, fullSignatureDetails, shot.label);
-
-        if (qa.score > bestScore) {
-          bestImage = imageUrl;
-          bestScore = qa.score;
-          lastIssues = qa.issues;
-        }
-
-        if (qa.passed) break;
-
-        // If this is the last attempt, keep the best image we got
-        if (attempt === MAX_QA_RETRIES) break;
-
-      } catch (err: any) {
-        if (attempt === MAX_QA_RETRIES) {
-          results[idx].status = "error";
-          results[idx].error = err.message || "Uretim hatasi";
-          results[idx].attempts = attempts;
-          updateProgress(shot.group, shot.id);
-          break;
-        }
+      // Build references: cropped region (if available) + all original references
+      let refs = referenceImagesBase64;
+      if (shot.focusRegion && croppedRegions[shot.focusRegion]) {
+        // Prepend the cropped close-up so the model sees it first
+        refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
       }
-    }
 
-    if (bestImage) {
-      results[idx].imageUrl = bestImage;
+      const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
+      results[idx].imageUrl = imageUrl;
       results[idx].status = "done";
-      results[idx].qaScore = bestScore;
-      results[idx].qaIssues = lastIssues;
-      results[idx].attempts = attempts;
-    } else if (results[idx].status !== "error") {
+    } catch (err: any) {
       results[idx].status = "error";
-      results[idx].error = "Tüm denemeler başarısız";
-      results[idx].attempts = attempts;
+      results[idx].error = err.message || "Uretim hatasi";
     }
     updateProgress(shot.group, shot.id);
   }

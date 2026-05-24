@@ -202,20 +202,8 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
               )}
 
               {/* Label bar */}
-              <div className="px-3 py-2 bg-surface border-t border-border-subtle flex items-center justify-between gap-2">
+              <div className="px-3 py-2 bg-surface border-t border-border-subtle">
                 <span className="text-[10px] font-medium text-muted block truncate font-mono">{result.label}</span>
-                {result.qaScore !== undefined && (
-                  <span
-                    className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                      result.qaScore >= 8 ? "bg-success/15 text-success" :
-                      result.qaScore >= 7 ? "bg-accent/15 text-accent" :
-                      "bg-error/15 text-error"
-                    }`}
-                    title={result.qaIssues?.length ? result.qaIssues.join('; ') : 'QA geçti'}
-                  >
-                    QA {result.qaScore.toFixed(1)}{result.attempts && result.attempts > 1 ? ` ×${result.attempts}` : ""}
-                  </span>
-                )}
               </div>
 
               {/* Revise panel */}

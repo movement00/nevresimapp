@@ -1,45 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ProductAnalysis, InfographicAnalysis, BoxContentAnalysis, ProductAnglesAnalysis } from "../types";
 
-// ── Analysis cache — avoids redundant API calls for the same product ──
-const CACHE_KEY_PREFIX = "proshop_analysis_";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-function imageFingerprint(base64Images: string[], userContext?: string): string {
-  const parts = base64Images.map(b64 => {
-    const len = b64.length;
-    return `${len}:${b64.substring(0, 40)}:${b64.substring(len - 40)}`;
-  });
-  parts.push(userContext || "");
-  const raw = parts.join("|");
-  let hash = 0;
-  for (let i = 0; i < raw.length; i++) {
-    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
-  }
-  return CACHE_KEY_PREFIX + hash.toString(36);
-}
-
-function getCachedAnalysis(key: string): ProductAnalysis | null {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return null;
-    const { data, ts } = JSON.parse(stored);
-    if (Date.now() - ts > CACHE_TTL_MS) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    return data as ProductAnalysis;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedAnalysis(key: string, data: ProductAnalysis): void {
-  try {
-    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
-  } catch { /* localStorage full — ignore */ }
-}
-
 let apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 export const setApiKey = (key: string) => {
@@ -74,10 +35,6 @@ export const analyzeProductPhotos = async (
   base64Images: string[],
   userContext?: string
 ): Promise<ProductAnalysis> => {
-  const cacheKey = imageFingerprint(base64Images, userContext);
-  const cached = getCachedAnalysis(cacheKey);
-  if (cached) return cached;
-
   const ai = getAiClient();
 
   const parts: any[] = [
@@ -154,32 +111,7 @@ Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED I
           productCategory: { type: Type.STRING },
           marketingDescription: { type: Type.STRING },
           suggestedTitle: { type: Type.STRING },
-          signatureDetails: {
-            type: Type.OBJECT,
-            description: "Structured product detail map with per-piece breakdown.",
-            properties: {
-              pieces: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING, description: "Piece name, e.g. 'duvet cover', 'pillowcase', 'flat sheet'" },
-                    baseColor: { type: Type.STRING, description: "Base fabric color of this piece" },
-                    hasEmbroidery: { type: Type.BOOLEAN, description: "Whether this piece has embroidery/pattern" },
-                    embroideryMotif: { type: Type.STRING, description: "Embroidery motif shape description, or empty if none" },
-                    embroideryColor: { type: Type.STRING, description: "Embroidery thread color, or empty if none" },
-                    embroideryPosition: { type: Type.STRING, description: "Where embroidery appears on this piece, or empty if none" },
-                    edgeTreatmentType: { type: Type.STRING, description: "Edge finish type: 'simple hem', 'piping', 'bias tape', 'decorative strip', 'ruffle', etc." },
-                    edgeTreatmentColor: { type: Type.STRING, description: "Color of the edge treatment" },
-                  },
-                  required: ["name", "baseColor", "hasEmbroidery", "embroideryMotif", "embroideryColor", "embroideryPosition", "edgeTreatmentType", "edgeTreatmentColor"],
-                },
-              },
-              fabricSurface: { type: Type.STRING, description: "Fabric surface character: glossy/satin sheen, matte/percale, textured/linen-like, etc." },
-              overallStyle: { type: Type.STRING, description: "Overall product design style: minimalist, ornate, romantic, modern, etc." },
-            },
-            required: ["pieces", "fabricSurface", "overallStyle"],
-          },
+          signatureDetails: { type: Type.STRING, description: "Complete product detail map: piece inventory, exact colors per piece, embroidery motif+position+color (or 'no embroidery'), edge treatment type+color, fabric surface character." },
           generationPrompt: { type: Type.STRING, description: "Full generation prompt that explicitly states all product details (pieces, colors, embroidery position, edge treatment) then describes a new high-end bedroom scene." },
         },
         required: ["productCategory", "marketingDescription", "generationPrompt", "suggestedTitle", "signatureDetails"]
@@ -187,9 +119,7 @@ Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED I
     }
   });
 
-  const result = JSON.parse(response.text!) as ProductAnalysis;
-  setCachedAnalysis(cacheKey, result);
-  return result;
+  return JSON.parse(response.text!) as ProductAnalysis;
 };
 
 // Sends a fully-formed prompt directly to the image model — no wrapper added.
@@ -531,75 +461,6 @@ export const reviseGeneratedImage = async (
   const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
   if (!imagePart?.inlineData) throw new Error("Revizyon başarısız.");
   return `data:image/png;base64,${imagePart.inlineData.data}`;
-};
-
-// ══════════════════════════════════════════════
-// Post-generation QA — compare generated image against references
-// ══════════════════════════════════════════════
-
-export interface QAResult {
-  passed: boolean;
-  score: number;
-  issues: string[];
-}
-
-export const verifyGeneratedImage = async (
-  generatedImageBase64: string,
-  referenceImagesBase64: string[],
-  signatureDetailsText: string,
-  shotLabel: string
-): Promise<QAResult> => {
-  const ai = getAiClient();
-
-  const parts: any[] = [
-    {
-      text: `You are a quality control specialist for product photography. Compare the GENERATED IMAGE (first image) against the REFERENCE IMAGES (remaining images) and the product specification below.
-
-PRODUCT SPECIFICATION:
-${signatureDetailsText}
-
-SHOT TYPE: ${shotLabel}
-
-CHECK EACH ITEM (score 0-10 for each, then average):
-1. PIECE COUNT: Does the generated image show the correct number of pieces for this shot type? (bed scene = duvet + visible pillowcases; knolling = all pieces)
-2. COLOR ACCURACY: Do the base colors of each piece match the references? (1-10)
-3. EMBROIDERY/PATTERN: Is the embroidery motif shape, color, and position correct? Are embroidered pieces correct (no embroidery added to plain pieces)? (1-10)
-4. EDGE TREATMENT: Is the edge/border type and color correct? (piping vs decorative strip vs bias tape) (1-10)
-5. NO HALLUCINATION: Are there any details in the generated image that do NOT exist in the references? (extra pillows, throws, patterns, changed colors) (1-10, where 10 = no hallucination)
-
-Return a JSON object with:
-- passed: true if average score >= 7
-- score: the average score (1-10)
-- issues: array of specific problems found (empty if passed). Each issue should be actionable, e.g. "Embroidery color is gold but should be silver" or "Extra decorative pillow added that is not in references".`
-    }
-  ];
-
-  parts.push({ inlineData: getInlineData(generatedImageBase64) });
-  referenceImagesBase64.forEach((b64) => {
-    parts.push({ inlineData: getInlineData(b64) });
-  });
-
-  try {
-    const response = await ai.models.generateContent({
-      model: ANALYSIS_MODEL,
-      contents: { parts },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            passed: { type: Type.BOOLEAN },
-            score: { type: Type.NUMBER },
-            issues: { type: Type.ARRAY, items: { type: Type.STRING } },
-          },
-          required: ["passed", "score", "issues"],
-        },
-      },
-    });
-    return JSON.parse(response.text!) as QAResult;
-  } catch {
-    return { passed: true, score: 7, issues: [] };
-  }
 };
 
 export const fileToBase64 = (file: File): Promise<string> => {
