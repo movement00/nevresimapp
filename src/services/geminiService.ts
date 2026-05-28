@@ -15,7 +15,7 @@ const getAiClient = () => {
 };
 
 // Analiz (text-only) için model
-const ANALYSIS_MODEL = "gemini-3-pro-preview";
+const ANALYSIS_MODEL = "gemini-3.1-pro-preview";
 // Görsel üretim için model — Nano Banana 2
 const IMAGE_GEN_MODEL = "gemini-3.1-flash-image-preview";
 

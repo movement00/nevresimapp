@@ -12,7 +12,7 @@ export interface SeoProductData {
   pieceList: string[];
 }
 
-const ANALYSIS_MODEL = "gemini-3-pro-preview";
+const ANALYSIS_MODEL = "gemini-3.1-pro-preview";
 
 export async function generateSeoTexts(
   analysis: ProductAnalysis,
