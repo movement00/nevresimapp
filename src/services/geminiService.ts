@@ -52,9 +52,10 @@ STEP 3 — EMBROIDERY / EMBELLISHMENT: If any embroidery, jacquard pattern, or p
   - If NO embroidery exists, explicitly state "no embroidery"
 
 STEP 4 — EDGE TREATMENT: Describe the edge finish on EACH piece precisely:
-  - Is it a simple sewn hem? A contrasting fabric border strip sewn on top? Piping cord? Bias tape binding?
+  - Is it a simple sewn hem? A contrasting fabric border strip sewn on top? Piping cord? Bias tape binding? Ruffles/fırfır?
   - CRITICAL DISTINCTION: A flat decorative fabric strip sewn along the edge IS NOT piping. Piping has a raised cord inside. Describe what you actually see.
   - State the color of the edge treatment separately.
+  - CRITICAL RULE FOR RUFFLED PILLOWCASES: If a pillowcase has ruffles (fırfır), the bottom edge (the side that touches the bed/mattress) is ALWAYS plain/flat — NEVER ruffled. Only 3 sides have ruffles. This is a manufacturing standard. When describing ruffled pillowcases, always specify "3-sided ruffle, bottom edge plain."
 
 STEP 5 — FABRIC CHARACTER: Describe the fabric surface (glossy/satin sheen, matte/percale, textured/linen-like, ribbed/jacquard).
 
@@ -91,6 +92,7 @@ STEP 7 — GENERATION PROMPT: Write a detailed generation prompt embedding ALL f
   - Edge treatment type and color
   - Fabric surface character
   - The chosen room atmosphere from STEP 6, with specific wall color, furniture material, headboard style, lighting quality, and 2-3 lifestyle props.
+  - If pillowcases have ruffles: explicitly state in the prompt that ruffles appear on 3 sides only — the bottom edge (touching the bed) is always plain/flat.
 
 Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED INFORMATION (trust this over your own count if it specifies piece count or details):\n${userContext}` : ""}`
     }
@@ -205,7 +207,8 @@ export const generateProfessionalImage = async (
     - NO PEOPLE: Do NOT include any humans, persons, figures, or body parts in the image. The scene must be completely empty of people.
     - NO EXTRA PRODUCTS: Do NOT add any textile products that are not in the reference images. No extra runners, throws, blankets, decorative pillows, cushions, or any additional bedding items beyond what is shown in the references. The bed must only contain the exact product set from the reference images.
     - DUVET BACK SIDE: If the back/reverse side of the duvet is NOT visible in the reference photos, it is the SAME fabric and color as the front. Do NOT invent a different back side color or material.
-    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.`
+    - FLAT SHEET VISIBILITY: The flat sheet (çarşaf) is ALWAYS hidden under the duvet in bed scenes. It is NEVER visible, folded over, or draped on top of the duvet. Only the duvet cover and decorative pillowcases are visible on the bed surface.
+    - RUFFLED PILLOWCASES: If the product has ruffled (fırfırlı) pillowcases, the ruffles appear on 3 sides ONLY. The bottom edge (the side resting on the bed/mattress) is ALWAYS plain and flat — never ruffled. This is a manufacturing standard for all ruffled pillowcases.`
   });
 
   const response = await ai.models.generateContent({
