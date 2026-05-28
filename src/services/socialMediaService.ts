@@ -38,7 +38,7 @@ export interface SocialMediaProgress {
 export type SocialMediaCallback = (progress: SocialMediaProgress) => void;
 
 // SM pipeline uses the PRO model for higher quality (same as BannerGenius)
-const SM_IMAGE_MODEL = "gemini-3.1-pro-image-preview";
+const SM_IMAGE_MODEL = "gemini-3-pro-image-preview";
 
 const getApiAspectRatio = (ratio: string): string => {
   if (ratio === "2:3" || ratio === "4:5") return "3:4";
