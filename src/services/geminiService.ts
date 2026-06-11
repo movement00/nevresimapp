@@ -63,36 +63,14 @@ CRITICAL RULE — DUVET BACK SIDE: If the BACK/REVERSE side of the duvet cover i
 
 CRITICAL RULE — BED SCENE VISIBILITY: In bedroom/bed photographs, ONLY the duvet cover and decorative pillowcases are visible on the bed surface. The flat sheet is HIDDEN underneath the duvet — it is NEVER visible, folded, or draped over the duvet. Sleeping pillowcases are behind the decorative pillowcases. In the generation prompt for bed scenes, do NOT instruct to show the flat sheet on top of or folded over the duvet. The flat sheet should ONLY appear in knolling/flat-lay/box-content shots.
 
-STEP 6 — ROOM STYLE SELECTION: Based on the product's color AND style character, select the most fitting room atmosphere. Match both the COLOR PALETTE and the DESIGN CHARACTER of the product:
-
-  COLOR-BASED MATCHING (pick the best fit, DO NOT always use the same palette):
-  - WHITE / CREAM → NEVER white walls. Choose ONE from: dusty pink walls + gold accents | sage green walls + natural wood | warm terracotta walls + cream textiles | soft lavender walls + white oak
-  - KREM / BEJ SATIN → Choose ONE from: warm honey walls + oak + linen | soft mushroom walls + walnut + cotton | pale apricot walls + birch + raw silk
-  - LACIVERT / NAVY → Choose ONE from: warm cream walls + honey oak + brass accents | soft sand walls + rattan + copper | light greige walls + walnut + gold touches | pale blush walls + light wood + bronze
-  - ANTRASİT / GRİ → Choose ONE from: warm greige walls + oak + dusty rose accents | soft sage walls + birch + brass | pale taupe walls + ash wood + copper | cream walls + walnut + soft gold
-  - BORDO / BURGUNDY → Choose ONE from: cream walls + dark walnut + copper accents | warm stone walls + oak + antique brass | soft dove grey walls + cherry wood + gold
-  - KOYU YEŞİL → Choose ONE from: warm beige walls + natural oak + terracotta accents | soft cream walls + rattan + dried botanicals | pale stone walls + teak + rust accents
-  - PASTEL (pink, sage, lavender, baby blue) → Choose ONE from: warm white walls + natural oak + dried flowers | soft cream walls + cane furniture + linen | off-white walls + birch + cotton gauze
-  - EARTH TONES (caramel, terracotta, brown, mustard) → Choose ONE from: raw lime-washed walls + rattan + dried pampas | warm plaster walls + olive wood + ceramic | soft clay walls + bamboo + woven textiles
-
-  STYLE-BASED MATCHING (equally important — match the product's DESIGN CHARACTER):
-  - RUFFLED / FRILLY / ROMANTIC (fırfır, dantel, ruffled edges) → French country or shabby chic: vintage furniture, dried flowers, lace touches, soft feminine atmosphere
-  - MINIMALIST / PLAIN (düz, sade, no embroidery) → Scandinavian or Japandi: clean lines, light wood, simple forms, zen calm
-  - ORNATE / HEAVILY EMBROIDERED (zengin nakış, klasik desen) → Classic elegance: upholstered headboard, brass/gold fixtures, rich textures, boutique hotel feel
-  - GEOMETRIC / MODERN PATTERN → Contemporary: angular furniture, matte finishes, bold art, modern lighting
-  - FLORAL / BOTANICAL → Garden-inspired: natural wood, green plants, botanical touches, greenhouse-like light
-  - SCATTERED SMALL MOTIFS (küçük serpme desen) → Playful cottage or modern farmhouse: painted furniture, mixed textures, charming accessories
-
-  IMPORTANT: Combine ONE color option with the style match. Each product should get a UNIQUE room — never repeat the exact same combination. Be creative with furniture, wall treatments, and accessories.
-
-STEP 7 — GENERATION PROMPT: Write a detailed generation prompt embedding ALL findings above. The prompt MUST explicitly state:
+STEP 6 — GENERATION PROMPT: Write a detailed generation prompt embedding ALL findings above. The prompt MUST explicitly state:
   - Exact piece count and types on the bed
   - Base color of each piece
   - Embroidery motif, color, and EXACT POSITION (or "no embroidery")
   - Edge treatment type and color
   - Fabric surface character
-  - The chosen room atmosphere from STEP 6, with specific wall color, furniture material, headboard style, lighting quality, and 2-3 lifestyle props.
   - If pillowcases have ruffles: explicitly state in the prompt that ruffles appear on 3 sides only — the bottom edge (touching the bed) is always plain/flat.
+  - Do NOT include any room atmosphere, wall color, furniture, or decor description — room style will be added separately.
 
 Your output must be a JSON object.${userContext ? `\n\nIMPORTANT USER-PROVIDED INFORMATION (trust this over your own count if it specifies piece count or details):\n${userContext}` : ""}`
     }
@@ -164,6 +142,22 @@ export const generateImageRaw = async (
   return `data:image/png;base64,${imagePart.inlineData.data}`;
 };
 
+const SINGLE_PHOTO_ROOM_STYLES = [
+  "BOHEMIAN: Warm earthy tones, textured plaster walls in warm sand/terracotta, rattan headboard, woven macrame wall hanging, dried pampas grass in ceramic vase, natural jute rug, layered textiles, warm golden-hour lighting through sheer linen curtains",
+  "RUSTIC FARMHOUSE: Reclaimed wood accent wall behind bed, wrought iron bed frame, exposed ceiling beams, vintage wooden nightstand, mason jar with wildflowers, warm Edison bulb lighting, distressed white painted furniture, cozy cabin feel",
+  "BOUTIQUE HOTEL: Upholstered velvet headboard in deep jewel tone, brass wall sconces, marble-top nightstand, statement art piece above bed, plush layered pillows, luxe satin curtains, moody sophisticated lighting, high-end hospitality aesthetic",
+  "PINTEREST AESTHETIC: Soft neutral palette with warm whites and beiges, arched niche above bed, organic curved furniture, dried floral arrangement, minimalist gallery wall, soft boucle accent chair, warm ambient glow, curated Instagram-worthy styling",
+  "SAGE GREEN RETREAT: Sage/olive green painted walls, natural oak furniture, linen curtains in soft cream, terracotta planters with trailing pothos, woven rattan light pendant, organic cotton textures, calming spa-like atmosphere, soft diffused natural light",
+  "JAPANDI: Minimal Japanese-Scandinavian fusion, low platform bed in light ash wood, clean lines, single ikebana arrangement, paper lantern pendant, tatami-inspired rug, muted earth tones, zen calm, soft shadowless lighting",
+  "COASTAL GRANDMOTHER: Soft blue-grey walls, white painted wood furniture, linen and cotton textures, seagrass basket, vintage nautical print, weathered wood frame mirror, fresh hydrangeas in a pitcher, breezy light-filled room",
+  "MODERN ORGANIC: Curved plaster walls in warm cream, sculptural wood headboard, oversized ceramic table lamp, dried olive branches, boucle upholstered bench, travertine nightstand, earth-toned palette, soft museum-quality lighting",
+  "SCANDINAVIAN HYGGE: Light birch wood everything, white walls with warm undertone, sheepskin throw on simple chair, minimalist pendant light, a few green plants, clean uncluttered surfaces, cozy warm blanket at foot of bed, bright Nordic daylight",
+  "FRENCH COUNTRY: Soft lavender or dusty rose walls, ornate vintage iron bed frame, distressed white armoire, fresh roses in antique vase, toile fabric accent, crystal chandelier, lace-trimmed details, romantic morning light through tall windows",
+  "WABI-SABI: Imperfect textured plaster walls in warm grey, handcrafted ceramic objects, raw linen and undyed cotton, weathered wood stool as nightstand, single dried branch in stoneware vessel, asymmetric arrangement, peaceful imperfection",
+  "EARTHY MEDITERRANEAN: Terracotta/clay colored walls, dark wood beamed ceiling, arched window alcove, hammered copper accents, olive branch in terra cotta urn, handwoven textile on bench, warm ochre and sienna tones, golden afternoon light",
+];
+let singlePhotoRoomIndex = Math.floor(Math.random() * SINGLE_PHOTO_ROOM_STYLES.length);
+
 const SINGLE_PHOTO_DECOR_SETS = [
   "a chunky knit throw on a reading chair, a tall ceramic vase with dried pampas grass, brass bedside lamp with linen shade, and a stack of hardcover books",
   "a woven rattan bench at foot of bed, a framed abstract watercolor print, glass pendant bedside light, and a small potted fiddle leaf fig",
@@ -184,6 +178,8 @@ export const generateProfessionalImage = async (
   aspectRatio: string = "1:1"
 ): Promise<string> => {
   const ai = getAiClient();
+  const room = SINGLE_PHOTO_ROOM_STYLES[singlePhotoRoomIndex % SINGLE_PHOTO_ROOM_STYLES.length];
+  singlePhotoRoomIndex++;
   const decor = SINGLE_PHOTO_DECOR_SETS[singlePhotoDecorIndex % SINGLE_PHOTO_DECOR_SETS.length];
   singlePhotoDecorIndex++;
 
@@ -196,9 +192,11 @@ export const generateProfessionalImage = async (
 
     PROMPT: ${prompt}
 
+    ROOM STYLE: ${room}
+
     CRITICAL INSTRUCTIONS:
     - DO NOT just return the original image. You must generate a completely new scene and composition.
-    - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment. If the product is bedding, generate a completely different, realistic, cozy, and high-end bedroom.
+    - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment using the ROOM STYLE specified above. The room must clearly reflect that style's characteristic furniture, wall treatment, colors, and atmosphere.
     - LIFESTYLE DECOR: Enrich the scene with these specific decor elements: ${decor}. Make the space feel inviting and lived-in.
     - STRICTLY NO CGI/RENDER LOOK: The image MUST look like a genuine photograph taken with a DSLR camera. Avoid fantastical backgrounds (e.g., fake forests outside windows). Use believable interior design, natural soft lighting, and realistic textures.
     - COMPOSITION: Optimize the camera angle and product placement specifically for a ${aspectRatio} aspect ratio. Ensure the composition is balanced for these dimensions.
@@ -373,8 +371,7 @@ export const analyzeProductAngles = async (
       3. EMBROIDERY/PATTERN: Motif shape, exact position on each piece, thread color. State "no embroidery" if none.
       4. EDGE TREATMENT: Exact type (flat decorative strip / bias tape / piping / simple hem) and color. CRITICAL: Do NOT confuse decorative strips with piping.
       5. FABRIC CHARACTER: Glossy satin, matte percale, textured, etc.
-      6. ROOM ATMOSPHERE: Select a room style that maximizes contrast with the product color. WHITE/LIGHT products → dark walls, deep wood, rich textures (product pops against dark). PASTEL products → warm neutrals, oak, linen. DARK/BOLD products → light neutral room, bright natural light. EARTH TONES → organic materials, warm plaster, rattan.
-      Create a base prompt embedding ALL these exact details including the chosen room atmosphere. The prompt must produce authentic, highly realistic DSLR shots — no CGI look.
+      Create a base prompt embedding ALL these exact product details (piece count, colors, embroidery, edges, fabric). Do NOT include any room atmosphere, wall color, furniture, or decor — room style will be added separately. The prompt must produce authentic, highly realistic DSLR shots — no CGI look.
       Output JSON.`
   }];
   base64Images.forEach((b64) => parts.push({ inlineData: getInlineData(b64) }));

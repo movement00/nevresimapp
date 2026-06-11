@@ -29,6 +29,30 @@ export interface PipelineProgress {
   results: PipelineResult[];
 }
 
+// Trending room styles — prioritized by current trends, rotated across shots
+const ROOM_STYLES = [
+  // Top trending styles first
+  "BOHEMIAN: Warm earthy tones, textured plaster walls in warm sand/terracotta, rattan headboard, woven macrame wall hanging, dried pampas grass in ceramic vase, natural jute rug, layered textiles, warm golden-hour lighting through sheer linen curtains",
+  "RUSTIC FARMHOUSE: Reclaimed wood accent wall behind bed, wrought iron bed frame, exposed ceiling beams, vintage wooden nightstand, mason jar with wildflowers, warm Edison bulb lighting, distressed white painted furniture, cozy cabin feel",
+  "BOUTIQUE HOTEL: Upholstered velvet headboard in deep jewel tone, brass wall sconces, marble-top nightstand, statement art piece above bed, plush layered pillows, luxe satin curtains, moody sophisticated lighting, high-end hospitality aesthetic",
+  "PINTEREST AESTHETIC: Soft neutral palette with warm whites and beiges, arched niche above bed, organic curved furniture, dried floral arrangement, minimalist gallery wall, soft boucle accent chair, warm ambient glow, curated Instagram-worthy styling",
+  "SAGE GREEN RETREAT: Sage/olive green painted walls, natural oak furniture, linen curtains in soft cream, terracotta planters with trailing pothos, woven rattan light pendant, organic cotton textures, calming spa-like atmosphere, soft diffused natural light",
+  "JAPANDI: Minimal Japanese-Scandinavian fusion, low platform bed in light ash wood, clean lines, single ikebana arrangement, paper lantern pendant, tatami-inspired rug, muted earth tones, zen calm, soft shadowless lighting",
+  "COASTAL GRANDMOTHER: Soft blue-grey walls, white painted wood furniture, linen and cotton textures, seagrass basket, vintage nautical print, weathered wood frame mirror, fresh hydrangeas in a pitcher, breezy light-filled room",
+  "MODERN ORGANIC: Curved plaster walls in warm cream, sculptural wood headboard, oversized ceramic table lamp, dried olive branches, boucle upholstered bench, travertine nightstand, earth-toned palette, soft museum-quality lighting",
+  "SCANDINAVIAN HYGGE: Light birch wood everything, white walls with warm undertone, sheepskin throw on simple chair, minimalist pendant light, a few green plants, clean uncluttered surfaces, cozy warm blanket at foot of bed, bright Nordic daylight",
+  "FRENCH COUNTRY: Soft lavender or dusty rose walls, ornate vintage iron bed frame, distressed white armoire, fresh roses in antique vase, toile fabric accent, crystal chandelier, lace-trimmed details, romantic morning light through tall windows",
+  "WABI-SABI: Imperfect textured plaster walls in warm grey, handcrafted ceramic objects, raw linen and undyed cotton, weathered wood stool as nightstand, single dried branch in stoneware vessel, asymmetric arrangement, peaceful imperfection",
+  "EARTHY MEDITERRANEAN: Terracotta/clay colored walls, dark wood beamed ceiling, arched window alcove, hammered copper accents, olive branch in terra cotta urn, handwoven textile on bench, warm ochre and sienna tones, golden afternoon light",
+];
+
+let roomIndex = 0;
+function nextRoomStyle(): string {
+  const style = ROOM_STYLES[roomIndex % ROOM_STYLES.length];
+  roomIndex++;
+  return style;
+}
+
 // Randomized decor sets — each shot gets a unique combination
 const DECOR_SETS = [
   "a chunky knit throw on a reading chair, a tall ceramic vase with dried pampas grass, brass bedside lamp with linen shade, and a stack of hardcover books",
@@ -50,20 +74,23 @@ function nextDecorSet(): string {
   return set;
 }
 
-// Group A — oda sahneleri: generationPrompt (ürün + oda atmosferi) kullanır
+// Group A — oda sahneleri: generationPrompt (ürün detayları) + rastgele oda stili
 const BASE_INSTRUCTIONS = (prompt: string, sig: string, ar: string, angleInstructions: string) => {
   const decor = nextDecorSet();
+  const room = nextRoomStyle();
   return `Generate a completely new, high-end professional product photograph based on the reference images provided.
 
     PROMPT: ${prompt}
 
     PRODUCT DETAILS (must match EXACTLY): ${sig}
 
+    ROOM STYLE: ${room}
+
     CAMERA ANGLE & SCENE: ${angleInstructions}
 
     CRITICAL INSTRUCTIONS:
     - DO NOT just return the original image. You must generate a completely new scene and composition.
-    - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment. If the product is bedding, generate a completely different, realistic, cozy, and high-end bedroom.
+    - NEW ARCHITECTURE & REALISM: You MUST design a brand new, AUTHENTIC environment using the ROOM STYLE specified above. The room must clearly reflect that style's characteristic furniture, wall treatment, colors, and atmosphere.
     - LIFESTYLE DECOR: Enrich the scene with these specific decor elements: ${decor}. Make the space feel inviting and lived-in.
     - STRICTLY NO CGI/RENDER LOOK: The image MUST look like a genuine photograph taken with a DSLR camera. Avoid fantastical backgrounds (e.g., fake forests outside windows). Use believable interior design, natural soft lighting, and realistic textures.
     - COMPOSITION: Optimize the camera angle and product placement specifically for a ${ar} aspect ratio. Ensure the composition is balanced for these dimensions.
