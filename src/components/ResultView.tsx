@@ -13,19 +13,37 @@ interface ResultViewProps {
 export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartPipeline, isRegenerating }: ResultViewProps) {
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [revisionText, setRevisionText] = useState("");
+  const [revisionFile, setRevisionFile] = useState<File | null>(null);
+  const [revisionPreview, setRevisionPreview] = useState<string | null>(null);
   const [isRevising, setIsRevising] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
 
   const handleRevise = async () => {
-    if (!revisionText.trim()) return;
+    if (!revisionText.trim() && !revisionFile) return;
     setIsRevising(true);
     try {
-      await onRevise(revisionText);
+      await onRevise(revisionText || "Regenerate with the provided reference photo.", revisionFile || undefined);
       setRevisionText("");
+      setRevisionFile(null);
+      setRevisionPreview(null);
       setShowRevision(false);
     } finally {
       setIsRevising(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRevisionFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setRevisionPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearRevisionFile = () => {
+    setRevisionFile(null);
+    setRevisionPreview(null);
   };
 
   const handleDownload = () => {
@@ -174,9 +192,38 @@ export function ResultView({ imageUrl, onRegenerate, onRevise, onReset, onStartP
                   rows={3}
                   className="w-full px-3 py-2.5 bg-bg border border-border rounded-lg text-xs text-text placeholder:text-subtle resize-none focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
                 />
+
+                {/* Reference photo upload */}
+                <div>
+                  <label className="text-[10px] font-medium text-muted block uppercase tracking-wider font-mono mb-1.5">
+                    Referans Fotoğraf (opsiyonel)
+                  </label>
+                  {revisionPreview ? (
+                    <div className="relative inline-block">
+                      <img src={revisionPreview} alt="Referans" className="h-20 w-20 object-cover rounded-lg border border-border" />
+                      <button
+                        onClick={clearRevisionFile}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-surface border border-border rounded-full flex items-center justify-center text-subtle hover:text-error transition-colors"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 px-3 py-2 bg-bg border border-dashed border-border rounded-lg cursor-pointer hover:border-accent/40 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-subtle">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+                      </svg>
+                      <span className="text-[11px] text-subtle">Fotoğraf ekle</span>
+                      <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                    </label>
+                  )}
+                </div>
+
                 <button
                   onClick={handleRevise}
-                  disabled={isRevising || !revisionText.trim()}
+                  disabled={isRevising || (!revisionText.trim() && !revisionFile)}
                   className="px-5 py-2 bg-accent text-black rounded-lg font-semibold text-xs hover:bg-accent-hover transition-colors disabled:opacity-40 flex items-center gap-1.5"
                 >
                   {isRevising ? (

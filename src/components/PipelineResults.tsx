@@ -6,7 +6,7 @@ interface PipelineResultsProps {
   results: PipelineResult[];
   onReset: () => void;
   onRetryShot: (shotId: string) => void;
-  onReviseShot?: (shotId: string, instruction: string) => void;
+  onReviseShot?: (shotId: string, instruction: string, refFile?: File) => void;
   onStartSocialMedia?: () => void;
 }
 
@@ -15,6 +15,8 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [reviseId, setReviseId] = useState<string | null>(null);
   const [reviseText, setReviseText] = useState("");
+  const [reviseFile, setReviseFile] = useState<File | null>(null);
+  const [revisePreview, setRevisePreview] = useState<string | null>(null);
 
   const successResults = results.filter(r => r.status === "done" && r.imageUrl);
   const errorCount = results.filter(r => r.status === "error").length;
@@ -40,11 +42,27 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
     toDownload.forEach((r, i) => setTimeout(() => downloadSingle(r), i * 300));
   };
 
+  const handleReviseFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReviseFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setRevisePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearReviseFile = () => {
+    setReviseFile(null);
+    setRevisePreview(null);
+  };
+
   const handleReviseSubmit = (shotId: string) => {
-    if (!reviseText.trim() || !onReviseShot) return;
-    onReviseShot(shotId, reviseText.trim());
+    if ((!reviseText.trim() && !reviseFile) || !onReviseShot) return;
+    onReviseShot(shotId, reviseText.trim() || "Regenerate with the provided reference photo.", reviseFile || undefined);
     setReviseId(null);
     setReviseText("");
+    setReviseFile(null);
+    setRevisePreview(null);
   };
 
   return (
@@ -224,16 +242,37 @@ export function PipelineResults({ results, onReset, onRetryShot, onReviseShot, o
                         className="w-full px-2.5 py-2 bg-bg border border-border rounded-lg text-[11px] text-text placeholder:text-subtle resize-none focus:outline-none focus:border-accent/60 transition-all"
                         autoFocus
                       />
+                      {revisePreview ? (
+                        <div className="relative inline-block">
+                          <img src={revisePreview} alt="Ref" className="h-14 w-14 object-cover rounded-md border border-border" />
+                          <button
+                            onClick={clearReviseFile}
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-surface border border-border rounded-full flex items-center justify-center text-subtle hover:text-error transition-colors"
+                          >
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-bg border border-dashed border-border rounded-md cursor-pointer hover:border-accent/40 transition-colors">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-subtle">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+                          </svg>
+                          <span className="text-[10px] text-subtle">Referans ekle</span>
+                          <input type="file" accept="image/*" onChange={handleReviseFileSelect} className="hidden" />
+                        </label>
+                      )}
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => handleReviseSubmit(result.id)}
-                          disabled={!reviseText.trim()}
+                          disabled={!reviseText.trim() && !reviseFile}
                           className="flex-1 py-1.5 bg-accent text-black rounded-md text-[10px] font-semibold hover:bg-accent-hover transition-colors disabled:opacity-30"
                         >
                           Revize Et
                         </button>
                         <button
-                          onClick={() => { setReviseId(null); setReviseText(""); }}
+                          onClick={() => { setReviseId(null); setReviseText(""); clearReviseFile(); }}
                           className="px-3 py-1.5 bg-surface border border-border text-muted rounded-md text-[10px] font-medium hover:text-text transition-colors"
                         >
                           İptal

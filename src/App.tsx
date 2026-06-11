@@ -247,15 +247,16 @@ function App() {
     }
   };
 
-  const reviseSocialMediaShot = async (shotId: string, instruction: string) => {
+  const reviseSocialMediaShot = async (shotId: string, instruction: string, refFile?: File) => {
     const current = smResults.find(r => r.id === shotId);
     if (!current?.imageUrl) return;
     const currentUrl = current.imageUrl;
+    const refB64 = refFile ? await api.fileToBase64(refFile) : undefined;
 
     setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const } : r));
 
     try {
-      const revisedUrl = await api.reviseGeneratedImage(currentUrl, instruction, current.aspectRatio);
+      const revisedUrl = await api.reviseGeneratedImage(currentUrl, instruction, current.aspectRatio, refB64);
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: revisedUrl, status: "done" as const } : r));
     } catch (err: any) {
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: currentUrl, status: "done" as const, error: err.message } : r));
@@ -342,15 +343,16 @@ function App() {
     }
   };
 
-  const revisePipelineShot = async (shotId: string, instruction: string) => {
+  const revisePipelineShot = async (shotId: string, instruction: string, refFile?: File) => {
     const currentResult = pipelineResults.find(r => r.id === shotId);
     if (!currentResult?.imageUrl) return;
     const currentImageUrl = currentResult.imageUrl;
+    const refB64 = refFile ? await api.fileToBase64(refFile) : undefined;
 
     setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "generating" as const, error: undefined } : r));
 
     try {
-      const revisedUrl = await api.reviseGeneratedImage(currentImageUrl, instruction, aspectRatio);
+      const revisedUrl = await api.reviseGeneratedImage(currentImageUrl, instruction, aspectRatio, refB64);
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: revisedUrl, status: "done" as const } : r));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl: currentImageUrl, status: "done" as const, error: err.message } : r));

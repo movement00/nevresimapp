@@ -7,7 +7,7 @@ interface SocialMediaResultsProps {
   results: SocialMediaResult[];
   onReset: () => void;
   onRetryShot: (shotId: string) => void;
-  onReviseShot: (shotId: string, instruction: string) => void;
+  onReviseShot: (shotId: string, instruction: string, refFile?: File) => void;
 }
 
 export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot }: SocialMediaResultsProps) {
@@ -15,6 +15,8 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
   const [zoomedUrl, setZoomedUrl] = useState<string | null>(null);
   const [reviseId, setReviseId] = useState<string | null>(null);
   const [reviseText, setReviseText] = useState("");
+  const [reviseFile, setReviseFile] = useState<File | null>(null);
+  const [revisePreview, setRevisePreview] = useState<string | null>(null);
 
   const successCount = results.filter(r => r.status === "done" && r.imageUrl).length;
   const errorCount = results.filter(r => r.status === "error").length;
@@ -40,11 +42,27 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
     targets.forEach(r => downloadImage(r.imageUrl!, r.id));
   };
 
+  const handleSmFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReviseFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setRevisePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearSmFile = () => {
+    setReviseFile(null);
+    setRevisePreview(null);
+  };
+
   const handleRevise = (id: string) => {
-    if (!reviseText.trim()) return;
-    onReviseShot(id, reviseText);
+    if (!reviseText.trim() && !reviseFile) return;
+    onReviseShot(id, reviseText || "Regenerate with the provided reference photo.", reviseFile || undefined);
     setReviseId(null);
     setReviseText("");
+    setReviseFile(null);
+    setRevisePreview(null);
   };
 
   return (
@@ -160,21 +178,37 @@ export function SocialMediaResults({ results, onReset, onRetryShot, onReviseShot
               <AnimatePresence>
                 {reviseId === r.id && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                    <div className="flex gap-1.5 mt-1">
-                      <input
-                        type="text"
-                        value={reviseText}
-                        onChange={(e) => setReviseText(e.target.value)}
-                        placeholder="Değişiklik talimatı..."
-                        className="flex-1 px-2 py-1.5 bg-bg border border-border rounded text-xs text-text placeholder:text-subtle outline-none focus:border-accent/60"
-                        onKeyDown={(e) => e.key === "Enter" && handleRevise(r.id)}
-                      />
-                      <button
-                        onClick={() => handleRevise(r.id)}
-                        className="px-2 py-1.5 bg-accent text-black rounded text-xs font-semibold"
-                      >
-                        Gönder
-                      </button>
+                    <div className="space-y-1.5 mt-1">
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={reviseText}
+                          onChange={(e) => setReviseText(e.target.value)}
+                          placeholder="Değişiklik talimatı..."
+                          className="flex-1 px-2 py-1.5 bg-bg border border-border rounded text-xs text-text placeholder:text-subtle outline-none focus:border-accent/60"
+                          onKeyDown={(e) => e.key === "Enter" && handleRevise(r.id)}
+                        />
+                        <button
+                          onClick={() => handleRevise(r.id)}
+                          className="px-2 py-1.5 bg-accent text-black rounded text-xs font-semibold"
+                        >
+                          Gönder
+                        </button>
+                      </div>
+                      {revisePreview ? (
+                        <div className="relative inline-block">
+                          <img src={revisePreview} alt="Ref" className="h-10 w-10 object-cover rounded border border-border" />
+                          <button onClick={clearSmFile} className="absolute -top-1 -right-1 w-4 h-4 bg-surface border border-border rounded-full flex items-center justify-center text-subtle hover:text-error transition-colors">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="inline-flex items-center gap-1 px-2 py-1 bg-bg border border-dashed border-border rounded cursor-pointer hover:border-accent/40 transition-colors">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-subtle"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                          <span className="text-[10px] text-subtle">Referans</span>
+                          <input type="file" accept="image/*" onChange={handleSmFileSelect} className="hidden" />
+                        </label>
+                      )}
                     </div>
                   </motion.div>
                 )}
