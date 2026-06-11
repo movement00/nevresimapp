@@ -4,6 +4,7 @@ import type { AppMode, ProcessStep, UploadedFile, ProductAnalysis, InfographicAn
 import { ANGLE_OPTIONS, PIECE_PRESETS } from "./constants";
 import { setApiKey } from "./services/geminiService";
 import * as api from "./services/geminiService";
+import { generateImage, generateProfessionalImageProvider } from "./services/imageProvider";
 import { PIPELINE_SHOTS, runPipeline } from "./services/pipelineService";
 import type { PipelineProgress, PipelineResult as PipelineResultType } from "./services/pipelineService";
 import { SOCIAL_MEDIA_SHOTS, runSocialMediaPipeline } from "./services/socialMediaService";
@@ -239,7 +240,7 @@ function App() {
         smBrandName,
         smLogoBase64
       );
-      const imageUrl = await api.generateImageRaw(prompt, b64List, shot.aspectRatio, shot.hasText);
+      const imageUrl = await generateImage(prompt, b64List, shot.aspectRatio, shot.hasText);
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
     } catch (err: any) {
       setSmResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
@@ -334,7 +335,7 @@ function App() {
         aspectRatio
       );
       const allRefs = generatedImage ? [...b64List, generatedImage] : b64List;
-      const imageUrl = await api.generateImageRaw(prompt, allRefs, aspectRatio, shot.textFirst);
+      const imageUrl = await generateImage(prompt, allRefs, aspectRatio, shot.textFirst);
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, imageUrl, status: "done" as const } : r));
     } catch (err: any) {
       setPipelineResults(prev => prev.map(r => r.id === shotId ? { ...r, status: "error" as const, error: err.message } : r));
@@ -369,7 +370,7 @@ function App() {
         ].filter(Boolean).join("\n");
         const result = await api.analyzeProductPhotos(b64List, ctx || undefined);
         setAnalysis(result); setStatus("generating");
-        const img = await api.generateProfessionalImage(result.generationPrompt, b64List, aspectRatio);
+        const img = await generateProfessionalImageProvider(result.generationPrompt, b64List, aspectRatio);
         setGeneratedImage(img); setStatus("done");
       } else if (mode === "infographic") {
         const result = await api.analyzeInfographic(b64List);
@@ -401,7 +402,7 @@ function App() {
       if (mode === "box-content" && boxContentAnalysis) prompt = boxContentAnalysis.generationPrompt;
       if (changeComposition) prompt += " CRITICAL: Create a DIFFERENT camera angle and composition while keeping the product 100% the same.";
       let img = "";
-      if (mode === "photography") img = await api.generateProfessionalImage(prompt, b64List, aspectRatio);
+      if (mode === "photography") img = await generateProfessionalImageProvider(prompt, b64List, aspectRatio);
       else if (mode === "infographic") img = await api.generateInfographicImage(prompt, b64List, Array.from(selectedBadges), aspectRatio);
       else if (mode === "box-content" && boxContentAnalysis) img = await api.generateBoxContentImage(prompt, b64List, boxContentAnalysis.itemsList, aspectRatio);
       setGeneratedImage(img); setStatus("done");

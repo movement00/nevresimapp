@@ -8,15 +8,27 @@ interface ApiKeyInputProps {
 
 export function ApiKeyInput({ onReady }: ApiKeyInputProps) {
   const [key, setKey] = useState(() => localStorage.getItem("gemini_api_key") || "");
+  const [kieKey, setKieKey] = useState(() => localStorage.getItem("kie_api_key") || "");
+  const [falKey, setFalKey] = useState(() => localStorage.getItem("fal_api_key") || "");
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
+  const [showKie, setShowKie] = useState(false);
+  const [showFal, setShowFal] = useState(false);
+  const [showOptional, setShowOptional] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = key.trim();
-    if (!trimmed) { setError("API anahtarı gerekli"); return; }
+    if (!trimmed) { setError("Gemini API anahtarı gerekli"); return; }
     setApiKey(trimmed);
     localStorage.setItem("gemini_api_key", trimmed);
+    // KIE / Fal optional — save only if provided
+    const kieTrimmed = kieKey.trim();
+    const falTrimmed = falKey.trim();
+    if (kieTrimmed) localStorage.setItem("kie_api_key", kieTrimmed);
+    else localStorage.removeItem("kie_api_key");
+    if (falTrimmed) localStorage.setItem("fal_api_key", falTrimmed);
+    else localStorage.removeItem("fal_api_key");
     onReady();
   };
 
@@ -116,6 +128,92 @@ export function ApiKeyInput({ onReady }: ApiKeyInputProps) {
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 {error}
               </p>
+            )}
+          </div>
+
+          {/* Optional: KIE + Fal */}
+          <div className="border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => setShowOptional(!showOptional)}
+              className="w-full flex items-center justify-between text-[10px] font-mono text-subtle uppercase tracking-[0.1em] hover:text-muted transition-colors"
+            >
+              <span>Görsel Sağlayıcı Anahtarları (Opsiyonel)</span>
+              <span className={`transition-transform ${showOptional ? "rotate-90" : ""}`}>›</span>
+            </button>
+
+            {showOptional && (
+              <div className="space-y-3 mt-3">
+                {/* KIE */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-mono font-500 text-subtle uppercase tracking-[0.1em]">
+                      KIE.ai Anahtarı
+                    </label>
+                    <a href="https://kie.ai" target="_blank" rel="noopener" className="text-[10px] font-mono text-accent/70 hover:text-accent transition-colors">
+                      Anahtar al →
+                    </a>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showKie ? "text" : "password"}
+                      value={kieKey}
+                      onChange={(e) => setKieKey(e.target.value)}
+                      placeholder="kie-..."
+                      autoComplete="off"
+                      className="w-full pr-10 px-3.5 py-2.5 bg-bg border border-border rounded-xl text-sm text-text placeholder:text-subtle font-mono focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKie(!showKie)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-muted transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showKie
+                        ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fal */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-mono font-500 text-subtle uppercase tracking-[0.1em]">
+                      Fal.ai Anahtarı
+                    </label>
+                    <a href="https://fal.ai/dashboard/keys" target="_blank" rel="noopener" className="text-[10px] font-mono text-accent/70 hover:text-accent transition-colors">
+                      Anahtar al →
+                    </a>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showFal ? "text" : "password"}
+                      value={falKey}
+                      onChange={(e) => setFalKey(e.target.value)}
+                      placeholder="fal-..."
+                      autoComplete="off"
+                      className="w-full pr-10 px-3.5 py-2.5 bg-bg border border-border rounded-xl text-sm text-text placeholder:text-subtle font-mono focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFal(!showFal)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-muted transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showFal
+                        ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-subtle font-mono leading-relaxed">
+                  Gemini ana motor · KIE ve Fal görsel sağlayıcılar için gerekli (gpt-image-2 vb.)
+                </p>
+              </div>
             )}
           </div>
 

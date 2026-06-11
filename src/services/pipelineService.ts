@@ -1,4 +1,5 @@
-import { generateImageRaw, detectProductRegions } from "./geminiService";
+import { detectProductRegions } from "./geminiService";
+import { generateImage } from "./imageProvider";
 import { cropRegion } from "../lib/cropRegion";
 
 export interface PipelineShot {
@@ -426,7 +427,7 @@ export async function runPipeline(
         refs = [croppedRegions[shot.focusRegion], ...referenceImagesBase64];
       }
 
-      const imageUrl = await generateImageRaw(prompt, refs, aspectRatio, shot.textFirst);
+      const imageUrl = await generateImage(prompt, refs, aspectRatio, shot.textFirst);
       results[idx].imageUrl = imageUrl;
       results[idx].status = "done";
     } catch (err: any) {
